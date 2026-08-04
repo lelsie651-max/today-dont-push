@@ -488,7 +488,8 @@ export function scheduleDailyPlan(
   if (capacity.capacityState === 'exhausted_by_commitments') {
     const exhaustedReason: ScheduleDeferredReason = {
       code: 'CAPACITY_EXHAUSTED',
-      message: '固定承诺已耗尽今日可安排容量，不安排任何任务',
+      // 不假定存在固定承诺：耗尽可能来自承诺能量、也可能来自保护性空白占满后无可安排时间。
+      message: '今日可安排容量已耗尽，不安排任何任务',
       values: {
         commitmentEnergyCostPoints: capacity.commitmentEnergyCostPoints,
         adjustedEnergyPoints: capacity.adjustedEnergyPoints,

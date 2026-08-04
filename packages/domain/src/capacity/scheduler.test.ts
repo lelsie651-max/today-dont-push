@@ -186,6 +186,26 @@ describe('scheduleDailyPlan commitment_heavy 与 exhausted', () => {
     expect(result.remainingSchedulableMinutes).toBe(result.capacity.schedulableMinutes);
     expect(result.remainingEnergyPoints).toBe(result.capacity.remainingEnergyPoints);
   });
+
+  it('无任何承诺但 schedulableMinutes 为 0 时同样 exhausted，文案不假定存在固定承诺', () => {
+    // 5 分钟窗口、能量 80：buffer = ceil(5×10/100/5)×5 = 5 → schedulable 0 → exhausted（无承诺）。
+    const result = scheduleDailyPlan(
+      makeInput({
+        planningWindows: [{ startAtMs: T0, endAtMs: T0 + 5 * MINUTE }],
+        tasks: [taskWithMinimum({ id: 'must-task', priority: 'must' })],
+      }),
+    );
+    expect(result.capacity.commitmentEnergyCostPoints).toBe(0);
+    expect(result.capacity.schedulableMinutes).toBe(0);
+    expect(result.capacity.capacityState).toBe('exhausted_by_commitments');
+    expect(result.scheduledItems).toEqual([]);
+    const deferred = result.deferredItems[0];
+    expect(deferred?.reasonCodes).toEqual(['CAPACITY_EXHAUSTED']);
+    expect(deferred?.reasons[0]?.message).not.toContain('固定承诺');
+    expect(deferred?.reasons[0]?.values.schedulableMinutes).toBe(0);
+    expect(deferred?.reasons[0]?.values.commitmentEnergyCostPoints).toBe(0);
+    expect(result.mustTaskDeferredIds).toEqual(['must-task']);
+  });
 });
 
 describe('scheduleDailyPlan full 放不下时降级 minimum', () => {

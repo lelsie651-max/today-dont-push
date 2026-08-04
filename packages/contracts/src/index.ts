@@ -10,3 +10,24 @@ export const HealthResponseSchema = z.object({
 });
 
 export type HealthResponse = z.infer<typeof HealthResponseSchema>;
+
+// 每日计划预览契约（POST /v1/plans/preview）
+export {
+  PLAN_PREVIEW_MAX_COMMITMENTS,
+  PLAN_PREVIEW_MAX_PLANNING_WINDOWS,
+  PLAN_PREVIEW_MAX_STRAIN_TAGS,
+  PLAN_PREVIEW_MAX_TASKS,
+  DailyScheduleSchema,
+  PlanPreviewInvalidInputResponseSchema,
+  PlanPreviewInvalidRequestResponseSchema,
+  PlanPreviewRequestSchema,
+  PlanPreviewResponseSchema,
+  PlanPreviewSuccessResponseSchema,
+} from './plan-preview.js';
+export type {
+  PlanPreviewInvalidInputResponse,
+  PlanPreviewInvalidRequestResponse,
+  PlanPreviewRequest,
+  PlanPreviewResponse,
+  PlanPreviewSuccessResponse,
+} from './plan-preview.js';
