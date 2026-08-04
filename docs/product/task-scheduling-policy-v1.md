@@ -34,6 +34,27 @@
 能量 50 的 must 任务例外地先试 full：还有力气时，真正重要的事
 值得趁早做完整版，放不下再降级——"先尽力，再兜底"。
 
+## must 两阶段保护（V1 核心语义）
+
+逐项贪心可能让前一个 must 的 full 耗尽资源，导致后一个 must 连
+minimum 都排不上。因此 must 任务采用确定性两阶段决策：
+
+1. **基线阶段**：按既有 deadline 与原序排列 must；每个 must 的基线
+   版本为有 minimum 则 minimum、否则 full；用现有时间、能量、deadline
+   与连续槽位规则安排基线。某个 must 无法安排时继续尝试后续 must，
+   不得直接终止。
+2. **升级阶段**：仅当现有策略对该 must 偏好 full（available 且能量
+   50/80）时，按 must 顺序尝试从 minimum 升级为 full。每次升级都
+   **从头重新模拟** must 计划；只有升级后“基线阶段原本能安排的 must
+   集合仍全部能安排”才接受升级，否则保留 minimum。不允许为了一个
+   must 的 full 牺牲另一个原本可完成的 must 基线。
+3. important 与 optional 使用**最终 must 计划**的剩余槽位、分钟与
+   能量，按上文原规则安排。
+
+升级被拒时区分动机并写入原因码：full 自身放不下（真实尝试失败）
+记 `MINIMUM_SELECTED_AS_FALLBACK`；full 能放下但会挤掉其他 must 的
+基线记 `MINIMUM_SELECTED_TO_PROTECT_MUST_COVERAGE`。
+
 ## 放置规则
 
 - 使用容量分析的空闲槽位（planningWindows − commitments），从最早槽位开始；
@@ -46,15 +67,28 @@
 ## 结果与原因码
 
 输出含完整的容量快照（`capacity`）、`scheduledItems`（每项带放置窗口、
-分钟数、能量成本与安排原因码）、`deferredItems`（每项带尝试过的形态与
-延期原因码）、剩余预算，以及 `mustTaskDeferredIds`——被延期的 must 任务
-是产品最需要温柔对待的名单。
+分钟数、能量成本、安排原因码与 `decisionRank`）、`deferredItems`（每项
+带尝试过的形态、结构化 `reasons` 与从中去重派生的 `reasonCodes`）、
+剩余预算，以及 `mustTaskDeferredIds`——被延期的 must 任务是产品最
+需要温柔对待的名单。
+
+- `decisionRank` 从 0 开始记录调度决策顺序（must 计划在前，随后
+  important / optional）；最终 `scheduledItems` 按
+  **startAtMs → endAtMs → decisionRank** 排序，方便前端直接展示时间线：
+  先决策的任务完全可能排在时间线的后面。
+- `reasonCodes` 一律从 `reasons` 去重派生（保留首次出现顺序），
+  不独立维护；exhausted 状态下的延期也携带包含相关容量数值的
+  结构化原因。
 
 延期原因码：`CAPACITY_EXHAUSTED`、`INSUFFICIENT_ENERGY`、
 `INSUFFICIENT_TOTAL_MINUTES`、`NO_CONTIGUOUS_SLOT`、`DEADLINE_CANNOT_BE_MET`。
 
 安排原因码：`FULL_VERSION_SELECTED`、`MINIMUM_SELECTED_LOW_ENERGY`、
-`MINIMUM_SELECTED_COMMITMENT_HEAVY`、`MINIMUM_SELECTED_AS_FALLBACK`。
+`MINIMUM_SELECTED_COMMITMENT_HEAVY`、`MINIMUM_SELECTED_BALANCED_ENERGY`
+（available 且能量 50 的 important / optional 首选 minimum）、
+`MINIMUM_SELECTED_TO_PROTECT_MUST_COVERAGE`（must 为保护其他 must 基线
+而保留 minimum）、`MINIMUM_SELECTED_AS_FALLBACK`（仅限 full 真实尝试
+失败后改用 minimum）。
 
 ## 边界与后续
 

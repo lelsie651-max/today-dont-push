@@ -96,7 +96,19 @@ describe('scheduleDailyPlan 三档能量的版本偏好（available）', () => {
       }),
     );
     expect(important.scheduledItems[0]?.variant).toBe('minimum');
-    expect(important.scheduledItems[0]?.reasonCodes).toEqual(['MINIMUM_SELECTED_AS_FALLBACK']);
+    // 能量 50 的 important/optional 首选 minimum：均衡能量码，不得使用回退码
+    expect(important.scheduledItems[0]?.reasonCodes).toEqual(['MINIMUM_SELECTED_BALANCED_ENERGY']);
+  });
+
+  it('能量 50：optional 首选 minimum 同样使用 BALANCED_ENERGY', () => {
+    const result = scheduleDailyPlan(
+      makeInput({
+        checkIn: { id: 'checkin-1', energyLevel: 50, strainTags: [] },
+        tasks: [taskWithMinimum({ id: 'opt-task', priority: 'optional' })],
+      }),
+    );
+    expect(result.scheduledItems[0]?.variant).toBe('minimum');
+    expect(result.scheduledItems[0]?.reasonCodes).toEqual(['MINIMUM_SELECTED_BALANCED_ENERGY']);
   });
 });
 
@@ -155,6 +167,18 @@ describe('scheduleDailyPlan commitment_heavy 与 exhausted', () => {
     result.deferredItems.forEach((item) => {
       expect(item.reasonCodes).toEqual(['CAPACITY_EXHAUSTED']);
       expect(item.attemptedVariants).toEqual([]);
+      // exhausted 延期也携带结构化原因与相关容量数值
+      expect(item.reasons).toHaveLength(1);
+      expect(item.reasons[0]?.code).toBe('CAPACITY_EXHAUSTED');
+      expect(item.reasons[0]?.message.length).toBeGreaterThan(0);
+      expect(item.reasons[0]?.values.commitmentEnergyCostPoints).toBe(
+        result.capacity.commitmentEnergyCostPoints,
+      );
+      expect(item.reasons[0]?.values.adjustedEnergyPoints).toBe(
+        result.capacity.adjustedEnergyPoints,
+      );
+      expect(item.reasons[0]?.values.schedulableMinutes).toBe(result.capacity.schedulableMinutes);
+      expect(item.reasonCodes).toEqual(item.reasons.map((reason) => reason.code));
     });
     // must 延期进入专门名单
     expect(result.mustTaskDeferredIds).toEqual(['must-task']);
@@ -417,5 +441,184 @@ describe('scheduleDailyPlan 确定性与不可变性', () => {
       const sharesReference = result.capacity.freeSlots.some((slot) => slot === item.window);
       expect(sharesReference).toBe(false);
     }
+  });
+});
+
+describe('scheduleDailyPlan must 两阶段保护', () => {
+  it('两个 must 各 90 分钟 full / 30 分钟 minimum、可安排 105 分钟：两个最低版都安排', () => {
+    // 窗口 120 分钟、能量 80：buffer 15、schedulable 105。
+    // 逐项贪心 full-first 会让第一个 must 的 full（90）耗尽预算，导致第二个 must 连 minimum 都排不上；
+    // 两阶段策略必须先保证两个 must 的 minimum 基线（60 分钟），升级均被拒绝。
+    const mustTask = (id: string): FlexibleTask =>
+      task({
+        id,
+        priority: 'must',
+        estimatedMinutes: 90,
+        energyDemand: 2,
+        minimumVersion: { title: `${id} 最低版`, estimatedMinutes: 30, energyDemand: 1 },
+      });
+    const result = scheduleDailyPlan(
+      makeInput({
+        planningWindows: [{ startAtMs: T0, endAtMs: T0 + 120 * MINUTE }],
+        tasks: [mustTask('must-a'), mustTask('must-b')],
+      }),
+    );
+    expect(result.capacity.schedulableMinutes).toBe(105);
+    expect(result.scheduledItems.map((item) => item.taskId)).toEqual(['must-a', 'must-b']);
+    result.scheduledItems.forEach((item) => {
+      expect(item.variant).toBe('minimum');
+      expect(item.minutes).toBe(30);
+    });
+    expect(result.deferredItems).toEqual([]);
+    expect(result.mustTaskDeferredIds).toEqual([]);
+    // must-a 的 full 会挤掉 must-b 的基线 → 保护覆盖率码；
+    // must-b 的 full 在 must-a 基线之后自身放不下 → 回退码。
+    expect(result.scheduledItems[0]?.reasonCodes).toEqual([
+      'MINIMUM_SELECTED_TO_PROTECT_MUST_COVERAGE',
+    ]);
+    expect(result.scheduledItems[1]?.reasonCodes).toEqual(['MINIMUM_SELECTED_AS_FALLBACK']);
+  });
+
+  it('资源足够时，must 仍可逐个升级为 full', () => {
+    // 默认 240 分钟窗口、能量 80：schedulable 215，两个 must 的 full（60+60）都放得下。
+    const mustTask = (id: string): FlexibleTask =>
+      task({
+        id,
+        priority: 'must',
+        estimatedMinutes: 60,
+        energyDemand: 2,
+        minimumVersion: { title: `${id} 最低版`, estimatedMinutes: 15, energyDemand: 1 },
+      });
+    const result = scheduleDailyPlan(
+      makeInput({ tasks: [mustTask('must-a'), mustTask('must-b')] }),
+    );
+    expect(result.scheduledItems.map((item) => item.taskId)).toEqual(['must-a', 'must-b']);
+    result.scheduledItems.forEach((item) => {
+      expect(item.variant).toBe('full');
+      expect(item.minutes).toBe(60);
+      expect(item.reasonCodes).toEqual(['FULL_VERSION_SELECTED']);
+    });
+    expect(result.scheduledItems[0]?.window).toEqual({ startAtMs: T0, endAtMs: T0 + 60 * MINUTE });
+    expect(result.scheduledItems[1]?.window).toEqual({
+      startAtMs: T0 + 60 * MINUTE,
+      endAtMs: T0 + 120 * MINUTE,
+    });
+    expect(result.deferredItems).toEqual([]);
+  });
+
+  it('一个 must 基线无法安排时，不阻止后续较短的 must', () => {
+    // 窗口 60 分钟、能量 80：schedulable 50。
+    // must-big 的基线（minimum 60 分钟）放不下，但不得终止流程；must-short 仍被安排。
+    const result = scheduleDailyPlan(
+      makeInput({
+        planningWindows: [{ startAtMs: T0, endAtMs: T0 + 60 * MINUTE }],
+        tasks: [
+          task({
+            id: 'must-big',
+            priority: 'must',
+            estimatedMinutes: 90,
+            energyDemand: 1,
+            minimumVersion: { title: '大任务最低版', estimatedMinutes: 60, energyDemand: 1 },
+          }),
+          task({ id: 'must-short', priority: 'must', estimatedMinutes: 40, energyDemand: 1 }),
+        ],
+      }),
+    );
+    expect(result.scheduledItems.map((item) => item.taskId)).toEqual(['must-short']);
+    expect(result.scheduledItems[0]?.variant).toBe('full');
+    expect(result.scheduledItems[0]?.reasonCodes).toEqual(['FULL_VERSION_SELECTED']);
+    const deferred = result.deferredItems.find((item) => item.taskId === 'must-big');
+    expect(deferred?.reasonCodes).toEqual(['INSUFFICIENT_TOTAL_MINUTES']);
+    expect(result.mustTaskDeferredIds).toEqual(['must-big']);
+  });
+
+  it('must 偏好 full 但 full 真实尝试失败时保留 minimum 并使用 FALLBACK', () => {
+    // 窗口 60 分钟、能量 80：schedulable 50。full 60 分钟超预算（真实失败），minimum 15 分钟放下。
+    const result = scheduleDailyPlan(
+      makeInput({
+        planningWindows: [{ startAtMs: T0, endAtMs: T0 + 60 * MINUTE }],
+        tasks: [
+          taskWithMinimum({ id: 'must-task', priority: 'must', estimatedMinutes: 60, energyDemand: 2 }),
+        ],
+      }),
+    );
+    const item = result.scheduledItems[0];
+    expect(item?.variant).toBe('minimum');
+    expect(item?.reasonCodes).toEqual(['MINIMUM_SELECTED_AS_FALLBACK']);
+  });
+});
+
+describe('scheduleDailyPlan 决策顺序与时间线输出', () => {
+  it('前一个决策放到下午、后一个决策放到上午：最终按时间排序且 decisionRank 保留决策顺序', () => {
+    // 承诺占据中段：空闲槽位 = [T0, T0+30min] 与 [T0+2h, T0+4h]。
+    // must（60 分钟）先决策但只能放进下午槽位；important（30 分钟）后决策却放进上午槽位。
+    const result = scheduleDailyPlan(
+      makeInput({
+        commitments: [
+          {
+            id: 'meeting',
+            title: '会议',
+            window: { startAtMs: T0 + 30 * MINUTE, endAtMs: T0 + 2 * HOUR },
+            energyDemand: 1,
+          },
+        ],
+        tasks: [
+          task({ id: 'must-task', priority: 'must', estimatedMinutes: 60, energyDemand: 1 }),
+          task({ id: 'imp-task', priority: 'important', estimatedMinutes: 30, energyDemand: 1 }),
+        ],
+      }),
+    );
+    expect(result.scheduledItems.map((item) => item.taskId)).toEqual(['imp-task', 'must-task']);
+    expect(result.scheduledItems[0]?.decisionRank).toBe(1);
+    expect(result.scheduledItems[1]?.decisionRank).toBe(0);
+    expect(result.scheduledItems[0]?.window).toEqual({
+      startAtMs: T0,
+      endAtMs: T0 + 30 * MINUTE,
+    });
+    expect(result.scheduledItems[1]?.window).toEqual({
+      startAtMs: T0 + 2 * HOUR,
+      endAtMs: T0 + 3 * HOUR,
+    });
+  });
+});
+
+describe('scheduleDailyPlan 延期原因结构', () => {
+  it('reasons 包含 message 与 values，reasonCodes 从 reasons 去重派生且严格一致', () => {
+    // 两个 60 分钟窗口、能量 20：schedulable 80、剩余能量 20。
+    // 能量 20 先试 minimum（90 分钟 → INSUFFICIENT_TOTAL_MINUTES），再试 full（成本 26 → INSUFFICIENT_ENERGY）。
+    const result = scheduleDailyPlan(
+      makeInput({
+        checkIn: { id: 'checkin-1', energyLevel: 20, strainTags: [] },
+        planningWindows: [
+          { startAtMs: T0, endAtMs: T0 + 60 * MINUTE },
+          { startAtMs: T0 + 2 * HOUR, endAtMs: T0 + 3 * HOUR },
+        ],
+        tasks: [
+          task({
+            id: 'blocked',
+            estimatedMinutes: 120,
+            energyDemand: 5,
+            emotionalResistance: 3,
+            minimumVersion: { title: '最低版', estimatedMinutes: 90, energyDemand: 1 },
+          }),
+        ],
+      }),
+    );
+    const deferred = result.deferredItems[0];
+    expect(deferred?.attemptedVariants).toEqual(['minimum', 'full']);
+    expect(deferred?.reasons).toHaveLength(2);
+    deferred?.reasons.forEach((reason) => {
+      expect(reason.message.length).toBeGreaterThan(0);
+      expect(Object.values(reason.values).every((value) => typeof value === 'number')).toBe(true);
+    });
+    expect(deferred?.reasons.map((reason) => reason.code)).toEqual([
+      'INSUFFICIENT_TOTAL_MINUTES',
+      'INSUFFICIENT_ENERGY',
+    ]);
+    expect(deferred?.reasons[0]?.values.requiredMinutes).toBe(90);
+    expect(deferred?.reasons[1]?.values.requiredEnergyPoints).toBe(26);
+    expect(deferred?.reasons[1]?.values.remainingEnergyPoints).toBe(20);
+    // reasonCodes 与 reasons 严格一致（去重保序派生）
+    expect(deferred?.reasonCodes).toEqual(deferred?.reasons.map((reason) => reason.code));
   });
 });
