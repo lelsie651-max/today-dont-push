@@ -46,21 +46,24 @@ export interface FixedCommitmentInput {
  * - window 为合法时间窗口；
  * - energyDemand 为 1 至 5 的整数。
  */
-export function createFixedCommitment(input: FixedCommitmentInput): DomainResult<FixedCommitment> {
+export function createFixedCommitment(
+  input: FixedCommitmentInput,
+  path = 'commitment',
+): DomainResult<FixedCommitment> {
   const errors: DomainError[] = [];
 
-  const id = validateRequiredText(errors, input.id, 'commitment.id', 'id', MAX_TITLE_LENGTH);
-  const title = validateRequiredText(errors, input.title, 'commitment.title', '标题', MAX_TITLE_LENGTH);
+  const id = validateRequiredText(errors, input.id, `${path}.id`, 'id', MAX_TITLE_LENGTH);
+  const title = validateRequiredText(errors, input.title, `${path}.title`, '标题', MAX_TITLE_LENGTH);
   validateIntegerInRange(
     errors,
     input.energyDemand,
-    'commitment.energyDemand',
+    `${path}.energyDemand`,
     'energyDemand',
     MIN_ENERGY_DEMAND,
     MAX_ENERGY_DEMAND,
   );
 
-  const windowResult = createTimeWindow(input.window, 'commitment.window');
+  const windowResult = createTimeWindow(input.window, `${path}.window`);
   if (!windowResult.ok) {
     errors.push(...windowResult.errors);
     return { ok: false, errors };

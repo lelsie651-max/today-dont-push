@@ -12,11 +12,11 @@
 | 能量档位 | `EnergyLevel` | 今天可用的心理/生理能量总量，粗粒度三档 |
 | 负担标签 | `StrainTag` | 解释"今天为什么累"的可多选标签 |
 | 时间窗口 | `TimeWindow` | 毫秒时间戳区间 `[startAtMs, endAtMs)`，由外部传入 |
-| 可用时间 | `availability` | 今天真正"属于自己、可自由支配"的时间段集合 |
+| 可规划时间窗口 | `planningWindows` | 今天允许系统纳入规划的整体时间范围，其中可以包含固定承诺；未来空闲槽位由 planningWindows 减去 commitments 得到 |
 | 固定承诺 | `FixedCommitment` | 必须在特定时间段发生、不可挪动的事（会议、通勤、预约） |
 | 弹性任务 | `FlexibleTask` | 今天尽量做、但开始时间与形态可以协商的事 |
 | 最低可行版本 | `MinimumViableVersion` | 任务的降级形态：状态很差时用最小代价拿到核心价值 |
-| 每日规划输入 | `DailyPlanningInput` | 一天的完整画像：签到 + 可用时间 + 固定承诺 + 弹性任务 |
+| 每日规划输入 | `DailyPlanningInput` | 一天的完整画像：签到 + 可规划时间窗口 + 固定承诺 + 弹性任务 |
 
 ## 数值范围与不变量
 
@@ -59,9 +59,10 @@
 ### 每日规划输入（DailyPlanningInput）
 
 - `localDate` 为真实存在的 `YYYY-MM-DD`；`timeZone` 非空（原样保存，领域层不解释）；
-- `availability` 至少一个窗口；返回结果按开始时间排序、互不重叠（边界相接不算重叠）；
-- `commitments` 互不重叠，且每项必须**完全位于**某个 availability 内
-  （承诺不能占用"不属于自己"的时间）；
+- `planningWindows` 至少一个窗口；返回结果按开始时间排序、互不重叠（边界相接不算重叠）；
+  它是"今天允许系统纳入规划的整体时间范围"，其中可以包含固定承诺；
+- `commitments` 互不重叠，且每项必须**完全位于**某个 planningWindow 内
+  （承诺不能占用未被纳入规划的时间）；
 - `commitments` 与 `tasks` 的 id 在同一天内必须唯一（跨类型也不允许重复）；
 - `tasks` 允许为空——"今天什么都不想做"是合法输入，正是本产品要善待的状态。
 
@@ -78,6 +79,7 @@
    对承诺说"我们把它算进了今天的能量账本"。
 4. **对调度的作用不同**。固定承诺是"硬约束"（先扣掉），弹性任务是"待排物料"
    （在剩余能量与时间里协商）。未来的调度算法只消费 `DailyPlanningInput`，
+   用 planningWindows 减去 commitments 得到空闲槽位，再分别安置弹性任务；
    这个区分让它能分别处理两类东西。
 
 ## 错误处理约定

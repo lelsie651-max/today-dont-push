@@ -1,7 +1,7 @@
 /**
  * 每日规划输入领域模型。
  *
- * DailyPlanningInput 是"今天"的完整画像：签到状态 + 可用时间 +
+ * DailyPlanningInput 是"今天"的完整画像：签到状态 + 可规划时间窗口 +
  * 固定承诺 + 弹性任务。未来的调度算法只消费这个结构。
  *
  * 领域层不解释时区（timeZone 只要求非空、原样保存），
@@ -44,8 +44,8 @@ export interface DailyPlanningInput {
   /** IANA 时区名（如 Asia/Shanghai），原样保存，领域层不解释。 */
   readonly timeZone: string;
   readonly checkIn: DailyCheckIn;
-  /** 可用时间段：按开始时间排序、互不重叠。 */
-  readonly availability: readonly TimeWindow[];
+  /** 今天允许系统纳入规划的整体时间范围：按开始时间排序、互不重叠，可包含固定承诺。 */
+  readonly planningWindows: readonly TimeWindow[];
   readonly commitments: readonly FixedCommitment[];
   /** 允许为空。 */
   readonly tasks: readonly FlexibleTask[];
@@ -57,7 +57,7 @@ export interface DailyPlanningInputInput {
   readonly localDate: string;
   readonly timeZone: string;
   readonly checkIn: DailyCheckInInput;
-  readonly availability: readonly TimeWindowInput[];
+  readonly planningWindows: readonly TimeWindowInput[];
   readonly commitments: readonly FixedCommitmentInput[];
   readonly tasks: readonly FlexibleTaskInput[];
 }
@@ -92,8 +92,8 @@ function isValidLocalDate(value: string): boolean {
  * - id 去空格后非空；
  * - localDate 为真实存在的 YYYY-MM-DD；timeZone 去空格后非空；
  * - checkIn 合法；
- * - availability 至少一个、每项为合法窗口；返回结果按开始时间排序且互不重叠；
- * - commitments 每项合法、互不重叠，且每项必须完全位于某个 availability 内；
+ * - planningWindows 至少一个、每项为合法窗口；返回结果按开始时间排序且互不重叠；
+ * - commitments 每项合法、互不重叠，且每项必须完全位于某个 planningWindow 内；
  * - commitments 与 tasks 的 id 在同一天内必须唯一；
  * - tasks 允许为空，每项合法。
  */
@@ -125,118 +125,124 @@ export function createDailyPlanningInput(
     errors.push(...checkInResult.errors);
   }
 
-  // availability：逐项校验窗口，再校验排序无关的重叠性，返回按开始时间排序。
-  const availability: TimeWindow[] = [];
-  input.availability.forEach((windowInput, index) => {
-    const result = createTimeWindow(windowInput, `availability[${index}]`);
+  // planningWindows：逐项校验窗口（保留原始索引），再校验重叠性，返回按开始时间排序。
+  // 后续重叠检查必须使用原始输入索引，不能用过滤合法项后的数组索引。
+  const planningWindows: { window: TimeWindow; index: number }[] = [];
+  input.planningWindows.forEach((windowInput, index) => {
+    const result = createTimeWindow(windowInput, `planningWindows[${index}]`);
     if (result.ok) {
-      availability.push(result.value);
+      planningWindows.push({ window: result.value, index });
     } else {
       errors.push(...result.errors);
     }
   });
-  if (input.availability.length === 0) {
-    errors.push(error('EMPTY_AVAILABILITY', 'availability', 'availability 至少需要一个时间窗口'));
+  if (input.planningWindows.length === 0) {
+    errors.push(
+      error('EMPTY_PLANNING_WINDOWS', 'planningWindows', 'planningWindows 至少需要一个时间窗口'),
+    );
   }
-  for (let i = 0; i < availability.length; i += 1) {
-    for (let j = i + 1; j < availability.length; j += 1) {
-      if (windowsOverlap(availability[i], availability[j])) {
+  for (let i = 0; i < planningWindows.length; i += 1) {
+    for (let j = i + 1; j < planningWindows.length; j += 1) {
+      const a = planningWindows[i];
+      const b = planningWindows[j];
+      if (windowsOverlap(a.window, b.window)) {
         errors.push(
           error(
-            'OVERLAPPING_AVAILABILITY',
-            `availability[${j}]`,
-            `availability[${i}] 与 availability[${j}] 重叠`,
+            'OVERLAPPING_PLANNING_WINDOWS',
+            `planningWindows[${b.index}]`,
+            `planningWindows[${a.index}] 与 planningWindows[${b.index}] 重叠`,
           ),
         );
       }
     }
   }
-  availability.sort((a, b) => a.startAtMs - b.startAtMs);
+  planningWindows.sort((a, b) => a.window.startAtMs - b.window.startAtMs);
 
-  // commitments：逐项校验，再校验互不重叠、完全位于某个 availability 内。
-  const commitments: FixedCommitment[] = [];
+  // commitments：逐项校验（直接传入原始索引路径），再校验互不重叠、完全位于某个 planningWindow 内。
+  const commitments: { value: FixedCommitment; index: number }[] = [];
   input.commitments.forEach((commitmentInput, index) => {
-    const result = createFixedCommitment(commitmentInput);
+    const result = createFixedCommitment(commitmentInput, `commitments[${index}]`);
     if (result.ok) {
-      commitments.push(result.value);
+      commitments.push({ value: result.value, index });
     } else {
-      errors.push(
-        ...result.errors.map((e) => ({ ...e, path: `commitments[${index}].${e.path}` })),
-      );
+      errors.push(...result.errors);
     }
   });
   for (let i = 0; i < commitments.length; i += 1) {
     for (let j = i + 1; j < commitments.length; j += 1) {
-      if (windowsOverlap(commitments[i].window, commitments[j].window)) {
+      const a = commitments[i];
+      const b = commitments[j];
+      if (windowsOverlap(a.value.window, b.value.window)) {
         errors.push(
           error(
             'OVERLAPPING_COMMITMENTS',
-            `commitments[${j}]`,
-            `commitments[${i}] 与 commitments[${j}] 时间重叠`,
+            `commitments[${b.index}]`,
+            `commitments[${a.index}] 与 commitments[${b.index}] 时间重叠`,
           ),
         );
       }
     }
   }
-  if (availability.length > 0) {
-    commitments.forEach((commitment, index) => {
-      const covered = availability.some((window) => windowWithin(commitment.window, window));
+  if (planningWindows.length > 0) {
+    commitments.forEach(({ value, index }) => {
+      const covered = planningWindows.some(({ window }) => windowWithin(value.window, window));
       if (!covered) {
         errors.push(
           error(
-            'COMMITMENT_OUTSIDE_AVAILABILITY',
+            'COMMITMENT_OUTSIDE_PLANNING_WINDOW',
             `commitments[${index}]`,
-            '固定承诺必须完全位于某个可用时间段内',
+            '固定承诺必须完全位于某个 planningWindow 内',
           ),
         );
       }
     });
   }
 
-  // tasks：允许为空，逐项校验。
-  const tasks: FlexibleTask[] = [];
+  // tasks：允许为空，逐项校验（保留原始索引）。
+  const tasks: { value: FlexibleTask; index: number }[] = [];
   input.tasks.forEach((taskInput, index) => {
     const result = createFlexibleTask(taskInput, `tasks[${index}]`);
     if (result.ok) {
-      tasks.push(result.value);
+      tasks.push({ value: result.value, index });
     } else {
       errors.push(...result.errors);
     }
   });
 
-  // commitments 与 tasks 的 id 在同一天内必须唯一。
+  // commitments 与 tasks 的 id 在同一天内必须唯一；路径使用原始索引。
   const seenIds = new Map<string, string>();
-  commitments.forEach((commitment, index) => {
-    const owner = seenIds.get(commitment.id);
+  commitments.forEach(({ value, index }) => {
+    const owner = seenIds.get(value.id);
     if (owner !== undefined) {
       errors.push(
-        error('DUPLICATE_ID', `commitments[${index}].id`, `id 与 ${owner} 重复: ${commitment.id}`),
+        error('DUPLICATE_ID', `commitments[${index}].id`, `id 与 ${owner} 重复: ${value.id}`),
       );
     } else {
-      seenIds.set(commitment.id, `commitments[${index}]`);
+      seenIds.set(value.id, `commitments[${index}]`);
     }
   });
-  tasks.forEach((task, index) => {
-    const owner = seenIds.get(task.id);
+  tasks.forEach(({ value, index }) => {
+    const owner = seenIds.get(value.id);
     if (owner !== undefined) {
       errors.push(
-        error('DUPLICATE_ID', `tasks[${index}].id`, `id 与 ${owner} 重复: ${task.id}`),
+        error('DUPLICATE_ID', `tasks[${index}].id`, `id 与 ${owner} 重复: ${value.id}`),
       );
     } else {
-      seenIds.set(task.id, `tasks[${index}]`);
+      seenIds.set(value.id, `tasks[${index}]`);
     }
   });
 
   if (errors.length > 0 || checkIn === undefined) {
     return { ok: false, errors };
   }
+  // 成功结果仍为纯领域对象数组，不暴露内部索引包装结构。
   return ok({
     id,
     localDate,
     timeZone,
     checkIn,
-    availability,
-    commitments,
-    tasks,
+    planningWindows: planningWindows.map(({ window }) => window),
+    commitments: commitments.map(({ value }) => value),
+    tasks: tasks.map(({ value }) => value),
   });
 }
