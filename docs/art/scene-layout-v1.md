@@ -1,6 +1,6 @@
 # Scene Layout V1
 
-本文档与 [scene-layout.ts](file:///c:/Users/1/Documents/GitHub/today-dont-push/apps/web/src/features/space/scene-layout.ts) 保持同步，当前舞台基准为 `1440 x 900`。
+本文档与 [scene-layout.json](file:///c:/Users/1/Documents/GitHub/today-dont-push/apps/web/src/features/space/scene-layout.json) 及 [scene-layout.ts](file:///c:/Users/1/Documents/GitHub/today-dont-push/apps/web/src/features/space/scene-layout.ts) 保持同步，当前舞台基准为 `1440 x 900`。
 
 ## 1. 1440x900 舞台坐标表
 

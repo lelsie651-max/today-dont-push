@@ -1,15 +1,19 @@
 import { DailyPlanPage, type DailyPlanPageProps } from './features/daily-plan/DailyPlanPage';
 import { SpaceWorkspace } from './features/space/SpaceWorkspace';
 
-export type AppProps = DailyPlanPageProps;
+export type AppProps = DailyPlanPageProps & {
+  readonly isDev?: boolean;
+};
 
 function App(props: AppProps) {
+  const { isDev = import.meta.env.DEV, ...dailyPlanProps } = props;
   const searchParams =
     typeof window !== 'undefined'
       ? new URLSearchParams(window.location.search)
       : null;
   const view = searchParams?.get('view') ?? null;
   const debugAssets = searchParams?.get('debugAssets') === '1';
+  const sceneEditor = isDev && searchParams?.get('sceneEditor') === '1';
 
   const isSpaceView = view === 'space';
 
@@ -29,7 +33,11 @@ function App(props: AppProps) {
           空间页面
         </a>
       </nav>
-      {isSpaceView ? <SpaceWorkspace debugAssets={debugAssets} /> : <DailyPlanPage {...props} />}
+      {isSpaceView ? (
+        <SpaceWorkspace debugAssets={debugAssets} sceneEditor={sceneEditor} />
+      ) : (
+        <DailyPlanPage {...dailyPlanProps} />
+      )}
     </>
   );
 }

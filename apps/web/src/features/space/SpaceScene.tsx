@@ -1,34 +1,107 @@
+import type { RefCallback } from 'react';
 import { AssetSlot } from './AssetSlot';
 import {
+  type AssetManifestEntry,
   assetManifest,
   defaultVisualState,
+  getSceneItemLabel,
   getSkyAsset,
   getWeatherAsset,
   type SpaceVisualState,
 } from './asset-manifest';
 import {
-  sceneLayout,
+  defaultSceneLayoutDocument,
   sceneLayoutEntries,
   SCENE_DESIGN_HEIGHT,
   SCENE_DESIGN_WIDTH,
+  type SceneItemKey,
+  type SceneLayoutDocument,
   toStageStyle,
 } from './scene-layout';
 
 interface SpaceSceneProps {
   readonly visualState?: Partial<SpaceVisualState>;
   readonly debugAssets?: boolean;
+  readonly layoutDocument?: SceneLayoutDocument;
+  readonly editorMode?: boolean;
+  readonly selectedItemKey?: SceneItemKey | null;
+  readonly stageRef?: RefCallback<HTMLDivElement>;
+  readonly registerEditorTarget?: (
+    key: SceneItemKey,
+  ) => RefCallback<HTMLButtonElement>;
+  readonly onSelectItem?: (key: SceneItemKey) => void;
 }
 
-function formatRect(key: string) {
-  const rect = sceneLayout[key as keyof typeof sceneLayout];
+const propEntries = [
+  {
+    key: 'planBoard',
+    assetId: 'plan-board',
+    manifest: assetManifest.planBoard,
+  },
+  {
+    key: 'deskLamp',
+    assetId: 'desk-lamp',
+    manifest: assetManifest.deskLamp,
+  },
+  {
+    key: 'radio',
+    assetId: 'radio',
+    manifest: assetManifest.radio,
+  },
+  {
+    key: 'focusClock',
+    assetId: 'focus-clock',
+    manifest: assetManifest.focusClock,
+  },
+  {
+    key: 'tarotEntry',
+    assetId: 'tarot-entry',
+    manifest: assetManifest.tarotEntry,
+  },
+  {
+    key: 'magazine',
+    assetId: 'magazine',
+    manifest: assetManifest.magazine,
+  },
+  {
+    key: 'reviewPrinter',
+    assetId: 'review-printer',
+    manifest: assetManifest.reviewPrinter,
+  },
+  {
+    key: 'plant',
+    assetId: 'plant',
+    manifest: assetManifest.plant,
+  },
+] as const satisfies ReadonlyArray<{
+  readonly key: Exclude<SceneItemKey, 'windowViewport' | 'roomForeground'>;
+  readonly assetId: string;
+  readonly manifest: AssetManifestEntry;
+}>;
+
+function formatRect(document: SceneLayoutDocument, key: SceneItemKey) {
+  const rect = document.items[key];
   return `${key} · x:${rect.x} y:${rect.y} w:${rect.width} h:${rect.height}`;
 }
 
-export function SpaceScene({ visualState, debugAssets = false }: SpaceSceneProps) {
+export function SpaceScene({
+  visualState,
+  debugAssets = false,
+  layoutDocument = defaultSceneLayoutDocument,
+  editorMode = false,
+  selectedItemKey = null,
+  stageRef,
+  registerEditorTarget,
+  onSelectItem,
+}: SpaceSceneProps) {
   const resolvedVisualState: SpaceVisualState = {
     ...defaultVisualState,
     ...visualState,
   };
+
+  const items = layoutDocument.items;
+  const viewport = items.windowViewport;
+  const roomForeground = items.roomForeground;
 
   return (
     <section className="space-scene" aria-label="窗边桌面空间">
@@ -40,104 +113,87 @@ export function SpaceScene({ visualState, debugAssets = false }: SpaceSceneProps
           </div>
         </div>
 
-        <div className="space-scene-stage">
+        <div className="space-scene-stage" ref={stageRef}>
           <div
             className="space-layer space-layer-sky"
             data-testid="space-layer-sky"
           >
-            <AssetSlot
-              assetId="sky"
-              manifest={getSkyAsset(resolvedVisualState.timeOfDay)}
-              passive
-              style={toStageStyle({
-                ...sceneLayout.windowViewport,
-                zIndex: 1,
-              })}
-            />
+            {viewport.visible ? (
+              <AssetSlot
+                assetId="sky"
+                manifest={getSkyAsset(resolvedVisualState.timeOfDay)}
+                passive
+                style={toStageStyle({
+                  ...viewport,
+                  zIndex: 1,
+                })}
+              />
+            ) : null}
           </div>
           <div
             className="space-layer space-layer-city"
             data-testid="space-layer-city"
           >
-            <AssetSlot
-              assetId="window-city-skyline"
-              manifest={assetManifest.windowCitySkyline}
-              passive
-              style={toStageStyle({
-                ...sceneLayout.windowViewport,
-                zIndex: 2,
-              })}
-            />
+            {viewport.visible ? (
+              <AssetSlot
+                assetId="window-city-skyline"
+                manifest={assetManifest.windowCitySkyline}
+                passive
+                style={toStageStyle({
+                  ...viewport,
+                  zIndex: 2,
+                })}
+              />
+            ) : null}
           </div>
           <div
             className="space-layer space-layer-weather"
             data-testid="space-layer-weather"
           >
-            <AssetSlot
-              assetId="weather-overlay"
-              manifest={getWeatherAsset(resolvedVisualState.weather)}
-              passive
-              style={toStageStyle({
-                ...sceneLayout.windowViewport,
-                zIndex: 3,
-              })}
-            />
+            {viewport.visible ? (
+              <AssetSlot
+                assetId="weather-overlay"
+                manifest={getWeatherAsset(resolvedVisualState.weather)}
+                passive
+                style={toStageStyle({
+                  ...viewport,
+                  zIndex: 3,
+                })}
+              />
+            ) : null}
           </div>
           <div
             className="space-layer space-layer-room"
             data-testid="space-layer-room"
           >
-            <AssetSlot
-              assetId="room-foreground"
-              manifest={assetManifest.roomForeground}
-              passive
-              style={toStageStyle(sceneLayout.roomForeground)}
-            />
+            {roomForeground.visible ? (
+              <AssetSlot
+                assetId="room-foreground"
+                manifest={assetManifest.roomForeground}
+                passive
+                style={toStageStyle(roomForeground)}
+              />
+            ) : null}
           </div>
           <div
             className="space-layer space-layer-props"
             data-testid="space-layer-props"
           >
-            <AssetSlot
-              assetId="plan-board"
-              manifest={assetManifest.planBoard}
-              style={toStageStyle(sceneLayout.planBoard)}
-            />
-            <AssetSlot
-              assetId="desk-lamp"
-              manifest={assetManifest.deskLamp}
-              style={toStageStyle(sceneLayout.deskLamp)}
-            />
-            <AssetSlot
-              assetId="radio"
-              manifest={assetManifest.radio}
-              style={toStageStyle(sceneLayout.radio)}
-            />
-            <AssetSlot
-              assetId="focus-clock"
-              manifest={assetManifest.focusClock}
-              style={toStageStyle(sceneLayout.focusClock)}
-            />
-            <AssetSlot
-              assetId="tarot-entry"
-              manifest={assetManifest.tarotEntry}
-              style={toStageStyle(sceneLayout.tarotEntry)}
-            />
-            <AssetSlot
-              assetId="magazine"
-              manifest={assetManifest.magazine}
-              style={toStageStyle(sceneLayout.magazine)}
-            />
-            <AssetSlot
-              assetId="review-printer"
-              manifest={assetManifest.reviewPrinter}
-              style={toStageStyle(sceneLayout.reviewPrinter)}
-            />
-            <AssetSlot
-              assetId="plant"
-              manifest={assetManifest.plant}
-              style={toStageStyle(sceneLayout.plant)}
-            />
+            {propEntries.map(({ key, assetId, manifest }) => {
+              const item = items[key];
+              if (!item.visible) {
+                return null;
+              }
+
+              return (
+                <AssetSlot
+                  key={key}
+                  assetId={assetId}
+                  manifest={manifest}
+                  style={toStageStyle(item)}
+                />
+              );
+            })}
           </div>
 
           {debugAssets ? (
@@ -149,25 +205,62 @@ export function SpaceScene({ visualState, debugAssets = false }: SpaceSceneProps
               <div className="space-debug-stage-outline">
                 <span>{SCENE_DESIGN_WIDTH} x {SCENE_DESIGN_HEIGHT}</span>
               </div>
-              <div
-                className="space-debug-rect space-debug-window"
-                data-testid="space-debug-window-viewport"
-                style={toStageStyle(sceneLayout.windowViewport)}
-              >
-                <span className="space-debug-label">{formatRect('windowViewport')}</span>
-              </div>
+              {items.windowViewport.visible ? (
+                <div
+                  className="space-debug-rect space-debug-window"
+                  data-testid="space-debug-window-viewport"
+                  style={toStageStyle(items.windowViewport)}
+                >
+                  <span className="space-debug-label">{formatRect(layoutDocument, 'windowViewport')}</span>
+                </div>
+              ) : null}
               {sceneLayoutEntries
                 .filter(([key]) => key !== 'windowViewport')
-                .map(([key, rect]) => (
-                <div
-                  key={key}
-                  className="space-debug-rect"
-                  data-testid={`space-debug-${key}`}
-                  style={toStageStyle(rect)}
-                >
-                  <span className="space-debug-label">{formatRect(key)}</span>
-                </div>
-                ))}
+                .map(([key]) => {
+                  const rect = items[key];
+                  if (!rect.visible) {
+                    return null;
+                  }
+                  return (
+                    <div
+                      key={key}
+                      className="space-debug-rect"
+                      data-testid={`space-debug-${key}`}
+                      style={toStageStyle(rect)}
+                    >
+                      <span className="space-debug-label">{formatRect(layoutDocument, key)}</span>
+                    </div>
+                  );
+                })}
+            </div>
+          ) : null}
+
+          {editorMode ? (
+            <div className="space-editor-target-layer" data-testid="space-editor-target-layer">
+              {sceneLayoutEntries.map(([key]) => {
+                const item = items[key];
+                if (!item.visible) {
+                  return null;
+                }
+
+                return (
+                  <button
+                    key={key}
+                    ref={registerEditorTarget?.(key)}
+                    type="button"
+                    className={`space-editor-target ${
+                      selectedItemKey === key ? 'is-selected' : ''
+                    } ${item.locked ? 'is-locked' : ''}`}
+                    data-scene-item-key={key}
+                    data-testid={`space-editor-target-${key}`}
+                    aria-label={`选择 ${getSceneItemLabel(key)}`}
+                    onClick={() => onSelectItem?.(key)}
+                    style={toStageStyle(item)}
+                  >
+                    <span className="space-editor-target-label">{key}</span>
+                  </button>
+                );
+              })}
             </div>
           ) : null}
         </div>

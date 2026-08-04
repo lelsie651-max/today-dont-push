@@ -1,0 +1,256 @@
+.scene-editor {
+  display: grid;
+  gap: 16px;
+}
+
+.scene-editor-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(177, 156, 129, 0.3);
+  background: rgba(255, 250, 244, 0.88);
+}
+
+.scene-editor-toolbar-group {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.scene-editor-button,
+.scene-editor-chip {
+  border: 1px solid rgba(186, 159, 127, 0.42);
+  border-radius: 999px;
+  background: #fffaf4;
+  color: #6a543b;
+  padding: 10px 14px;
+  font: inherit;
+}
+
+.scene-editor-button:disabled {
+  opacity: 0.48;
+}
+
+.scene-editor-button.is-primary {
+  background: #7b5e3d;
+  border-color: #7b5e3d;
+  color: #fff9f2;
+}
+
+.scene-editor-notice {
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(85, 124, 83, 0.24);
+  background: rgba(242, 248, 240, 0.9);
+  color: #4a6846;
+}
+
+.scene-editor-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr) minmax(260px, 300px);
+  gap: 16px;
+  align-items: start;
+}
+
+.scene-editor-panel,
+.scene-editor-canvas {
+  min-width: 0;
+  border-radius: 24px;
+  border: 1px solid rgba(177, 156, 129, 0.28);
+  background: rgba(255, 251, 247, 0.9);
+  box-shadow: 0 12px 28px rgba(121, 98, 73, 0.06);
+}
+
+.scene-editor-panel {
+  padding: 16px;
+}
+
+.scene-editor-panel-header,
+.scene-editor-canvas-header {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.scene-editor-panel-header h2,
+.scene-editor-canvas-header h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.scene-editor-panel-header p,
+.scene-editor-canvas-header p {
+  margin: 0;
+  color: #7e6e5d;
+  font-size: 0.92rem;
+}
+
+.scene-editor-hierarchy-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.scene-editor-hierarchy-row {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 16px;
+  border: 1px solid rgba(186, 159, 127, 0.18);
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.scene-editor-hierarchy-row.is-selected {
+  border-color: rgba(82, 116, 196, 0.48);
+  background: rgba(245, 248, 255, 0.92);
+}
+
+.scene-editor-hierarchy-item {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+}
+
+.scene-editor-hierarchy-name {
+  font-weight: 700;
+  color: #523f2c;
+}
+
+.scene-editor-hierarchy-key {
+  color: #8a745c;
+  font-size: 0.82rem;
+}
+
+.scene-editor-hierarchy-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.scene-editor-canvas {
+  padding: 16px;
+}
+
+.scene-editor-canvas .space-scene-frame {
+  border-radius: 24px;
+}
+
+.scene-editor-canvas .space-scene-stage {
+  cursor: default;
+}
+
+.space-editor-target-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+}
+
+.space-editor-target {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  border: 1px dashed rgba(60, 93, 168, 0.55);
+  background: rgba(60, 93, 168, 0.08);
+  color: transparent;
+  overflow: hidden;
+}
+
+.space-editor-target.is-selected {
+  border: 2px solid rgba(60, 93, 168, 0.95);
+  background: rgba(60, 93, 168, 0.16);
+}
+
+.space-editor-target.is-locked {
+  border-style: solid;
+  border-color: rgba(142, 103, 70, 0.8);
+}
+
+.space-editor-target-label {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(32, 28, 25, 0.82);
+  color: #fffaf5;
+  font-size: 0.68rem;
+  line-height: 1.3;
+}
+
+.scene-editor-inspector {
+  display: grid;
+  gap: 14px;
+}
+
+.scene-editor-readonly {
+  display: grid;
+  gap: 4px;
+}
+
+.scene-editor-readonly span,
+.scene-editor-field span,
+.scene-editor-toggle span {
+  color: #7e6e5d;
+  font-size: 0.86rem;
+}
+
+.scene-editor-readonly strong {
+  color: #4c3a28;
+}
+
+.scene-editor-readonly code {
+  color: #8a745c;
+}
+
+.scene-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.scene-editor-field {
+  display: grid;
+  gap: 6px;
+}
+
+.scene-editor-field input {
+  min-width: 0;
+  border: 1px solid rgba(186, 159, 127, 0.34);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #fffdf9;
+  font: inherit;
+}
+
+.scene-editor-field small {
+  color: #ab4b4b;
+}
+
+.scene-editor-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.scene-editor-hint,
+.scene-editor-empty {
+  margin: 0;
+  color: #7e6e5d;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 1280px) {
+  .scene-editor-layout {
+    grid-template-columns: 1fr;
+  }
+}

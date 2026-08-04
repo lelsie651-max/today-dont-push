@@ -1,14 +1,48 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import sceneLayoutJson from './scene-layout.json';
 import {
+  defaultSceneLayoutDocument,
+  parseSceneLayoutDraft,
   sceneLayout,
   sceneLayoutEntries,
   SCENE_DESIGN_HEIGHT,
   SCENE_DESIGN_WIDTH,
+  serializeSceneLayoutDocument,
+  updateSceneLayoutItem,
+  validateSceneLayoutDocument,
 } from './scene-layout';
 
 describe('sceneLayout', () => {
+  it('默认 JSON 与迁移前坐标完全一致', () => {
+    expect(defaultSceneLayoutDocument.items.radio).toMatchObject({
+      x: 238,
+      y: 631,
+      width: 259,
+      height: 179,
+      zIndex: 7,
+      visible: true,
+      locked: false,
+      keepRatio: true,
+    });
+    expect(defaultSceneLayoutDocument.items.windowViewport).toMatchObject({
+      x: 445,
+      y: 10,
+      width: 940,
+      height: 520,
+      locked: true,
+    });
+    expect(sceneLayout).toEqual(defaultSceneLayoutDocument.items);
+    expect(sceneLayoutJson.items.plant).toMatchObject({
+      x: 936,
+      y: 587,
+      width: 187,
+      height: 227,
+      zIndex: 7,
+    });
+  });
+
   it('所有布局项都位于 1440x900 范围内', () => {
     sceneLayoutEntries.forEach(([, rect]) => {
       expect(rect.x).toBeGreaterThanOrEqual(0);
@@ -41,6 +75,49 @@ describe('sceneLayout', () => {
       width: 1440,
       height: 900,
     });
+  });
+
+  it('非法布局会被校验器拒绝', () => {
+    const result = validateSceneLayoutDocument({
+      ...sceneLayoutJson,
+      items: {
+        ...sceneLayoutJson.items,
+        radio: {
+          ...sceneLayoutJson.items.radio,
+          width: 10,
+        },
+      },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain('items.radio.width 不能小于 20');
+  });
+
+  it('非法 JSON 草稿不会导致解析崩溃', () => {
+    const result = parseSceneLayoutDraft('{oops');
+    expect(result.ok).toBe(false);
+    expect(result.errors[0]).toBe('本地草稿不是合法 JSON');
+  });
+
+  it('更新工具会把物件限制在舞台范围内', () => {
+    const updated = updateSceneLayoutItem(defaultSceneLayoutDocument, 'radio', {
+      x: 2000,
+      y: 2000,
+      width: 10,
+      height: 10,
+    });
+
+    expect(updated.items.radio.width).toBe(20);
+    expect(updated.items.radio.height).toBe(20);
+    expect(updated.items.radio.x + updated.items.radio.width).toBeLessThanOrEqual(1440);
+    expect(updated.items.radio.y + updated.items.radio.height).toBeLessThanOrEqual(900);
+  });
+
+  it('序列化字段顺序稳定', () => {
+    const serialized = serializeSceneLayoutDocument(defaultSceneLayoutDocument);
+    expect(serialized).toContain('"version": 1');
+    expect(serialized.indexOf('"designSpace"')).toBeLessThan(serialized.indexOf('"items"'));
+    expect(serialized.indexOf('"windowViewport"')).toBeLessThan(serialized.indexOf('"roomForeground"'));
   });
 
   it('CSS 中不再残留 .slot-* 的位置和 z-index 硬编码', () => {

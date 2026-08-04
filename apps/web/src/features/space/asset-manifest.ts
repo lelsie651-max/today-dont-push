@@ -1,3 +1,5 @@
+import type { SceneItemKey } from './scene-layout';
+
 export interface AssetManifestEntry {
   readonly label: string;
   readonly path: string;
@@ -188,10 +190,37 @@ export const defaultVisualState: SpaceVisualState = {
   weather: 'clear',
 };
 
+export const sceneItemManifestMap: Partial<Record<SceneItemKey, AssetManifestEntry>> = {
+  roomForeground: assetManifest.roomForeground,
+  planBoard: assetManifest.planBoard,
+  deskLamp: assetManifest.deskLamp,
+  radio: assetManifest.radio,
+  focusClock: assetManifest.focusClock,
+  tarotEntry: assetManifest.tarotEntry,
+  magazine: assetManifest.magazine,
+  reviewPrinter: assetManifest.reviewPrinter,
+  plant: assetManifest.plant,
+};
+
 export function getSkyAsset(timeOfDay: TimeOfDay): AssetManifestEntry {
   return assetManifest.sky[timeOfDay];
 }
 
 export function getWeatherAsset(weather: WeatherKind): AssetManifestEntry {
   return assetManifest.weather[weather];
+}
+
+export function getSceneItemLabel(itemKey: SceneItemKey): string {
+  if (itemKey === 'windowViewport') {
+    return 'window viewport';
+  }
+  return sceneItemManifestMap[itemKey]?.label ?? itemKey;
+}
+
+export function getSceneItemManifestAspectRatio(itemKey: SceneItemKey): number | null {
+  const manifest = sceneItemManifestMap[itemKey];
+  if (manifest === undefined) {
+    return null;
+  }
+  return manifest.width / manifest.height;
 }

@@ -1,0 +1,109 @@
+{
+  "version": 1,
+  "designSpace": {
+    "width": 1440,
+    "height": 900
+  },
+  "items": {
+    "windowViewport": {
+      "x": 445,
+      "y": 10,
+      "width": 940,
+      "height": 520,
+      "zIndex": 1,
+      "visible": true,
+      "locked": true,
+      "keepRatio": true
+    },
+    "roomForeground": {
+      "x": 0,
+      "y": 0,
+      "width": 1440,
+      "height": 900,
+      "zIndex": 4,
+      "visible": true,
+      "locked": true,
+      "keepRatio": true
+    },
+    "planBoard": {
+      "x": 89,
+      "y": 108,
+      "width": 317,
+      "height": 247,
+      "zIndex": 6,
+      "visible": true,
+      "locked": false,
+      "keepRatio": true
+    },
+    "deskLamp": {
+      "x": 734,
+      "y": 496,
+      "width": 219,
+      "height": 323,
+      "zIndex": 7,
+      "visible": true,
+      "locked": false,
+      "keepRatio": true
+    },
+    "radio": {
+      "x": 238,
+      "y": 631,
+      "width": 259,
+      "height": 179,
+      "zIndex": 7,
+      "visible": true,
+      "locked": false,
+      "keepRatio": true
+    },
+    "focusClock": {
+      "x": 550,
+      "y": 667,
+      "width": 194,
+      "height": 121,
+      "zIndex": 7,
+      "visible": true,
+      "locked": false,
+      "keepRatio": true
+    },
+    "tarotEntry": {
+      "x": 1146,
+      "y": 221,
+      "width": 144,
+      "height": 144,
+      "zIndex": 7,
+      "visible": true,
+      "locked": false,
+      "keepRatio": true
+    },
+    "magazine": {
+      "x": 441,
+      "y": 667,
+      "width": 245,
+      "height": 172,
+      "zIndex": 6,
+      "visible": true,
+      "locked": false,
+      "keepRatio": true
+    },
+    "reviewPrinter": {
+      "x": 1128,
+      "y": 539,
+      "width": 219,
+      "height": 271,
+      "zIndex": 7,
+      "visible": true,
+      "locked": false,
+      "keepRatio": true
+    },
+    "plant": {
+      "x": 936,
+      "y": 587,
+      "width": 187,
+      "height": 227,
+      "zIndex": 7,
+      "visible": true,
+      "locked": false,
+      "keepRatio": true
+    }
+  }
+}
