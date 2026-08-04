@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Fastify 后端服务（本轮仅 GET /health）",
+  "description": "Fastify 后端服务（提供健康检查与每日计划预览 API）",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -b",

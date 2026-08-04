@@ -61,7 +61,7 @@
 
 Request Schema 只负责 JSON 结构与安全上限，**不重复领域业务规则**：`energyLevel` 接受任意整数、`priority` 接受任意非空字符串、空数组是否合法、窗口是否重叠等一律交由 domain 判定（返回 422）。
 
-`strainTags` 的合法领域值为 `poor_sleep`、`meeting_heavy`、`physical_discomfort`、`low_mood`、`interpersonal_stress`、`other`。其中 `other` 属于领域规则：一旦出现，`checkIn.note` 必填；contracts 只校验它们是字符串数组，不在传输层重复该业务约束。
+`strainTags` 的合法领域值为 `poor_sleep`、`physical_discomfort`、`low_mood`、`exhausting_commute`、`meeting_heavy`、`urgent_deadline`、`interpersonal_stress`、`other`。其中 `other` 属于领域规则：一旦出现，`checkIn.note` 必填；contracts 只校验它们是字符串数组，不在传输层重复该业务约束。
 
 ## 响应
 

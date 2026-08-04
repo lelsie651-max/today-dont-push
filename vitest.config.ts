@@ -20,11 +20,13 @@ export default defineConfig({
     alias: workspaceAliases,
   },
   test: {
-    environment: 'node',
+    environmentMatchGlobs: [['apps/web/src/**/*.test.tsx', 'jsdom']],
     include: [
       'apps/*/src/**/*.test.ts',
+      'apps/*/src/**/*.test.tsx',
       'packages/*/src/**/*.test.ts',
       'tests/**/*.test.ts',
     ],
+    setupFiles: ['apps/web/src/test/setup.ts'],
   },
 });

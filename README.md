@@ -4,7 +4,11 @@
 
 ## 当前状态
 
-本轮仅建立**可运行、可测试的 TypeScript Monorepo 工程骨架**，不包含任何产品业务逻辑、AI 模型调用或正式 UI。
+当前已具备第一条真实闭环：
+
+- `apps/api` 提供 `POST /v1/plans/preview` 无副作用预演接口；
+- `apps/web` 提供 PC 优先的“每日计划预览”单页原型，可填写今天状态并请求真实 API；
+- 本轮仍不包含数据库写入、登录、AI 模型调用或最终场景美术。
 
 ## 技术栈
 
@@ -49,12 +53,20 @@ cp .env.example .env
 # 3. （可选）启动本地 PostgreSQL
 docker compose up -d db
 
-# 4. 开发模式（并行启动 web 与 api）
-pnpm dev
+# 4. 分别启动 API 与 Web
+pnpm --filter @today-dont-push/api dev
+pnpm --filter @today-dont-push/web dev
 ```
 
 - web：<http://localhost:5173>
 - api：<http://localhost:3001/health>，返回 `{ "status": "ok", "service": "api" }`
+- 预览页面会在开发环境通过 Vite proxy 把 `/v1/*` 转发到 `http://localhost:3001`
+
+也可以继续使用一键命令：
+
+```bash
+pnpm dev
+```
 
 ## 环境变量加载与启动校验
 
