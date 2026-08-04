@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { useState } from 'react';
 import type { AssetManifestEntry } from './asset-manifest';
 
@@ -6,6 +7,7 @@ interface AssetSlotProps {
   readonly manifest: AssetManifestEntry;
   readonly className?: string;
   readonly passive?: boolean;
+  readonly style?: CSSProperties;
 }
 
 export function AssetSlot({
@@ -13,6 +15,7 @@ export function AssetSlot({
   manifest,
   className = '',
   passive = false,
+  style,
 }: AssetSlotProps) {
   const [hasLoaded, setHasLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
@@ -27,6 +30,10 @@ export function AssetSlot({
   ]
     .filter(Boolean)
     .join(' ');
+  const rootStyle: CSSProperties = {
+    ...style,
+    aspectRatio,
+  };
 
   const content = (
     <>
@@ -46,10 +53,7 @@ export function AssetSlot({
         style={{ objectFit: manifest.fit }}
       />
       {showPlaceholder ? (
-        <div
-          className="asset-slot-surface"
-          style={{ aspectRatio }}
-        >
+        <div className="asset-slot-surface">
           <span className="asset-slot-name">{manifest.label}</span>
           <span className="asset-slot-meta">
             {manifest.width} x {manifest.height}
@@ -69,6 +73,7 @@ export function AssetSlot({
         aria-disabled="true"
         disabled
         title={`${manifest.label}（暂未开放，未来资源：${manifest.path}）`}
+        style={rootStyle}
       >
         {content}
       </button>
@@ -82,6 +87,7 @@ export function AssetSlot({
       data-role={manifest.role}
       aria-hidden="true"
       title={`${manifest.label}（未来资源：${manifest.path}）`}
+      style={rootStyle}
     >
       {content}
     </div>

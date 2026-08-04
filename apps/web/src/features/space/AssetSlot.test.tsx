@@ -9,7 +9,6 @@ describe('AssetSlot', () => {
       <AssetSlot
         assetId="sky"
         manifest={getSkyAsset('daytime')}
-        className="slot-sky"
         passive
       />,
     );
@@ -19,12 +18,23 @@ describe('AssetSlot', () => {
     expect(image).toHaveAttribute('src', '/assets/scene/window/sky-daytime.webp');
   });
 
+  it('根元素具有 manifest 对应的 aspect-ratio', () => {
+    const { container } = render(
+      <AssetSlot
+        assetId="sky"
+        manifest={getSkyAsset('daytime')}
+        passive
+      />,
+    );
+
+    expect(container.firstElementChild).toHaveStyle({ aspectRatio: '960 / 600' });
+  });
+
   it('图片 error 后显示占位内容', () => {
     const { container } = render(
       <AssetSlot
         assetId="sky"
         manifest={getSkyAsset('daytime')}
-        className="slot-sky"
         passive
       />,
     );
@@ -37,6 +47,7 @@ describe('AssetSlot', () => {
 
     expect(screen.getByText('sky')).toBeInTheDocument();
     expect(screen.getByText('960 x 600')).toBeInTheDocument();
+    expect(container.firstElementChild).toHaveStyle({ aspectRatio: '960 / 600' });
   });
 
   it('图片成功加载后不显示占位文字', () => {
@@ -44,7 +55,6 @@ describe('AssetSlot', () => {
       <AssetSlot
         assetId="sky"
         manifest={getSkyAsset('daytime')}
-        className="slot-sky"
         passive
       />,
     );
@@ -57,6 +67,7 @@ describe('AssetSlot', () => {
 
     expect(screen.queryByText('sky')).not.toBeInTheDocument();
     expect(screen.queryByText('960 x 600')).not.toBeInTheDocument();
+    expect(container.firstElementChild).toHaveStyle({ aspectRatio: '960 / 600' });
   });
 
   it('decorative 资产不是 button', () => {
@@ -64,7 +75,6 @@ describe('AssetSlot', () => {
       <AssetSlot
         assetId="plant"
         manifest={assetManifest.plant}
-        className="slot-plant"
       />,
     );
 
@@ -77,7 +87,6 @@ describe('AssetSlot', () => {
       <AssetSlot
         assetId="tarot-entry"
         manifest={assetManifest.tarotEntry}
-        className="slot-tarot-entry"
       />,
     );
 

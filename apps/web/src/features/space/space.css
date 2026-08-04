@@ -70,19 +70,12 @@
   position: relative;
   width: 100%;
   aspect-ratio: 1440 / 900;
-  background:
-    linear-gradient(180deg, rgba(248, 237, 219, 0.76), rgba(241, 225, 205, 0.88));
+  background: linear-gradient(180deg, rgba(248, 237, 219, 0.76), rgba(241, 225, 205, 0.88));
 }
 
 .space-layer {
   position: absolute;
   inset: 0;
-}
-
-.space-layer-sky,
-.space-layer-city,
-.space-layer-weather {
-  inset: 15.5% 31% 25.5% 30.7%;
 }
 
 .space-layer-props {
@@ -96,6 +89,7 @@
   border: 0;
   background: transparent;
   text-align: left;
+  overflow: hidden;
 }
 
 .asset-slot--passive {
@@ -114,6 +108,12 @@
   outline: none;
 }
 
+.asset-slot-image,
+.asset-slot-surface {
+  position: absolute;
+  inset: 0;
+}
+
 .asset-slot-image {
   width: 100%;
   height: 100%;
@@ -128,9 +128,6 @@
 }
 
 .asset-slot-surface {
-  width: 100%;
-  height: 100%;
-  position: relative;
   border-radius: 24px;
   border: 1px dashed rgba(137, 109, 76, 0.38);
   background:
@@ -162,100 +159,123 @@
   color: #8a7358;
 }
 
-.slot-sky,
-.slot-window-city-skyline,
-.slot-weather-overlay {
-  inset: 0;
-  z-index: 0;
-}
-
-.slot-room-foreground {
-  inset: 0;
-  z-index: 4;
-}
-
-.slot-room-foreground .asset-slot-surface {
-  border-style: solid;
-  border-width: 0;
+[data-asset-id='sky'] .asset-slot-surface,
+[data-asset-id='window-city-skyline'] .asset-slot-surface,
+[data-asset-id='weather-overlay'] .asset-slot-surface,
+[data-asset-id='room-foreground'] .asset-slot-surface {
   border-radius: 0;
-  background: linear-gradient(180deg, rgba(245, 234, 219, 0.65), rgba(237, 223, 204, 0.82));
+}
+
+[data-asset-id='sky'] .asset-slot-surface {
+  background: linear-gradient(180deg, rgba(201, 222, 240, 0.96), rgba(170, 195, 220, 0.96));
+  border-width: 0;
   box-shadow: none;
 }
 
-.slot-sky .asset-slot-surface,
-.slot-window-city-skyline .asset-slot-surface,
-.slot-weather-overlay .asset-slot-surface {
-  border-radius: 0;
-}
-
-.slot-sky .asset-slot-surface {
-  background: linear-gradient(180deg, rgba(201, 222, 240, 0.96), rgba(170, 195, 220, 0.96));
-}
-
-.slot-window-city-skyline .asset-slot-surface {
+[data-asset-id='window-city-skyline'] .asset-slot-surface {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(56, 72, 88, 0.25)),
     linear-gradient(180deg, rgba(206, 214, 222, 0), rgba(118, 131, 144, 0.36));
 }
 
-.slot-weather-overlay .asset-slot-surface {
+[data-asset-id='weather-overlay'] .asset-slot-surface {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(122, 145, 168, 0.18));
 }
 
-.slot-plan-board {
-  left: 6.2%;
-  top: 12%;
-  width: 22%;
-  z-index: 6;
+[data-asset-id='room-foreground'] .asset-slot-surface {
+  border-width: 0;
+  background: linear-gradient(180deg, rgba(245, 234, 219, 0.65), rgba(237, 223, 204, 0.82));
+  box-shadow: none;
 }
 
-.slot-desk-lamp {
-  left: 51%;
-  bottom: 9%;
-  width: 15.2%;
-  z-index: 7;
+.space-debug-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
 }
 
-.slot-radio {
-  left: 16.5%;
-  bottom: 10%;
-  width: 18%;
-  z-index: 7;
+.space-debug-grid {
+  position: absolute;
+  inset: 0;
 }
 
-.slot-focus-clock {
-  left: 38.2%;
-  bottom: 12.4%;
-  width: 13.5%;
-  z-index: 7;
+.space-debug-grid-minor {
+  background-image:
+    linear-gradient(to right, rgba(231, 63, 63, 0.1) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(231, 63, 63, 0.1) 1px, transparent 1px);
+  background-size: calc(100% / 72) calc(100% / 45);
 }
 
-.slot-tarot-entry {
-  right: 10.4%;
-  top: 24.5%;
-  width: 10%;
-  z-index: 7;
+.space-debug-grid-major {
+  background-image:
+    linear-gradient(to right, rgba(211, 38, 38, 0.24) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(211, 38, 38, 0.24) 1px, transparent 1px);
+  background-size: calc(100% / 14.4) calc(100% / 9);
 }
 
-.slot-magazine {
-  left: 30.6%;
-  bottom: 6.8%;
-  width: 17%;
-  z-index: 6;
+.space-debug-stage-outline,
+.space-debug-rect,
+.space-debug-centerline {
+  position: absolute;
 }
 
-.slot-review-printer {
-  right: 6.5%;
-  bottom: 10%;
-  width: 15.2%;
-  z-index: 7;
+.space-debug-stage-outline {
+  inset: 0;
+  border: 2px solid rgba(213, 52, 52, 0.7);
 }
 
-.slot-plant {
-  right: 22%;
-  bottom: 9.5%;
-  width: 13%;
-  z-index: 7;
+.space-debug-stage-outline span {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(213, 52, 52, 0.9);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.space-debug-centerline-x {
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(25, 108, 217, 0.7);
+  transform: translateX(-0.5px);
+}
+
+.space-debug-centerline-y {
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(25, 108, 217, 0.7);
+  transform: translateY(-0.5px);
+}
+
+.space-debug-rect {
+  border: 1px dashed rgba(213, 52, 52, 0.85);
+  background: rgba(213, 52, 52, 0.05);
+}
+
+.space-debug-window {
+  border: 2px solid rgba(25, 108, 217, 0.85);
+  background: rgba(25, 108, 217, 0.08);
+}
+
+.space-debug-label {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  max-width: calc(100% - 8px);
+  padding: 4px 6px;
+  border-radius: 8px;
+  background: rgba(32, 28, 25, 0.82);
+  color: #fffaf5;
+  font-size: 0.68rem;
+  line-height: 1.35;
 }
 
 @media (max-width: 1080px) {
@@ -296,9 +316,7 @@
     font-size: 0.75rem;
   }
 
-  .space-layer-sky,
-  .space-layer-city,
-  .space-layer-weather {
-    inset: 15.5% 30.6% 25.5% 30.3%;
+  .space-debug-label {
+    font-size: 0.56rem;
   }
 }

@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { SpaceScene } from './SpaceScene';
 import { assetManifest } from './asset-manifest';
+import { sceneLayout } from './scene-layout';
 
 describe('SpaceScene', () => {
   it('可以渲染空间场景', () => {
@@ -35,6 +36,40 @@ describe('SpaceScene', () => {
     expect(screen.getByTestId('space-layer-weather')).toBeInTheDocument();
     expect(screen.getByTestId('space-layer-room')).toBeInTheDocument();
     expect(screen.getByTestId('space-layer-props')).toBeInTheDocument();
+  });
+
+  it('天空、城市和天气使用同一 windowViewport', () => {
+    const { container } = render(<SpaceScene />);
+    const expectedLeft = `${(sceneLayout.windowViewport.x / 1440) * 100}%`;
+    const expectedTop = `${(sceneLayout.windowViewport.y / 900) * 100}%`;
+    const expectedWidth = `${(sceneLayout.windowViewport.width / 1440) * 100}%`;
+    const expectedHeight = `${(sceneLayout.windowViewport.height / 900) * 100}%`;
+
+    ['sky', 'window-city-skyline', 'weather-overlay'].forEach((assetId) => {
+      const element = container.querySelector(`[data-asset-id="${assetId}"]`);
+      expect(element).toHaveStyle({
+        left: expectedLeft,
+        top: expectedTop,
+        width: expectedWidth,
+        height: expectedHeight,
+      });
+    });
+  });
+
+  it('默认空间不显示校准层', () => {
+    render(<SpaceScene />);
+    expect(screen.queryByTestId('space-debug-layer')).not.toBeInTheDocument();
+  });
+
+  it('debugAssets 开启后显示网格、窗洞和所有 slot 坐标', () => {
+    render(<SpaceScene debugAssets />);
+
+    expect(screen.getByTestId('space-debug-layer')).toBeInTheDocument();
+    expect(screen.getByTestId('space-debug-window-viewport')).toBeInTheDocument();
+    expect(screen.getByTestId('space-debug-roomForeground')).toBeInTheDocument();
+    expect(screen.getByTestId('space-debug-planBoard')).toBeInTheDocument();
+    expect(screen.getByText(/windowViewport · x:445 y:10 w:940 h:520/)).toBeInTheDocument();
+    expect(screen.getByText(/planBoard · x:89 y:108 w:317 h:247/)).toBeInTheDocument();
   });
 
   it('manifest 的关键文件名和尺寸符合标准', () => {

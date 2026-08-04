@@ -1,7 +1,11 @@
 import './space.css';
 import { SpaceScene } from './SpaceScene';
 
-export function SpaceWorkspace() {
+interface SpaceWorkspaceProps {
+  readonly debugAssets?: boolean;
+}
+
+export function SpaceWorkspace({ debugAssets = false }: SpaceWorkspaceProps) {
   return (
     <main className="space-workspace">
       <div className="space-workspace-shell">
@@ -11,7 +15,7 @@ export function SpaceWorkspace() {
             <p>先给未来的窗边桌面留出位置。这里会慢慢长成一个属于你的陪伴空间。</p>
           </div>
         </header>
-        <SpaceScene />
+        <SpaceScene debugAssets={debugAssets} />
       </div>
     </main>
   );

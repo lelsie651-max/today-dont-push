@@ -499,4 +499,13 @@ describe('App', () => {
     expect(screen.queryByRole('button', { name: 'desk lamp' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'plant' })).not.toBeInTheDocument();
   });
+
+  it('debugAssets 模式会显示完整校准层', () => {
+    window.history.replaceState({}, '', '/?view=space&debugAssets=1');
+    render(<App />);
+
+    expect(screen.getByTestId('space-debug-layer')).toBeInTheDocument();
+    expect(screen.getByTestId('space-debug-window-viewport')).toBeInTheDocument();
+    expect(screen.getByText(/roomForeground · x:0 y:0 w:1440 h:900/)).toBeInTheDocument();
+  });
 });

@@ -4,10 +4,12 @@ import { SpaceWorkspace } from './features/space/SpaceWorkspace';
 export type AppProps = DailyPlanPageProps;
 
 function App(props: AppProps) {
-  const view =
+  const searchParams =
     typeof window !== 'undefined'
-      ? new URLSearchParams(window.location.search).get('view')
+      ? new URLSearchParams(window.location.search)
       : null;
+  const view = searchParams?.get('view') ?? null;
+  const debugAssets = searchParams?.get('debugAssets') === '1';
 
   const isSpaceView = view === 'space';
 
@@ -27,7 +29,7 @@ function App(props: AppProps) {
           空间页面
         </a>
       </nav>
-      {isSpaceView ? <SpaceWorkspace /> : <DailyPlanPage {...props} />}
+      {isSpaceView ? <SpaceWorkspace debugAssets={debugAssets} /> : <DailyPlanPage {...props} />}
     </>
   );
 }
