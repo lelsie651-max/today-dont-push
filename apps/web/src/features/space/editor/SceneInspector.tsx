@@ -14,6 +14,7 @@ import {
 interface SceneInspectorProps {
   readonly selectedItemKey: SceneItemKey | null;
   readonly selectedItem: SceneLayoutItem | null;
+  readonly editingLocked?: boolean;
   readonly onPatchItem: (
     key: SceneItemKey,
     patch: SceneLayoutPatch,
@@ -28,6 +29,7 @@ interface SceneInspectorProps {
 export function SceneInspector({
   selectedItemKey,
   selectedItem,
+  editingLocked = false,
   onPatchItem,
   onToggleFlag,
 }: SceneInspectorProps) {
@@ -112,7 +114,7 @@ export function SceneInspector({
     { key: 'zIndex', label: 'zIndex' },
   ];
 
-  const geometryDisabled = selectedItem.locked;
+  const geometryDisabled = selectedItem.locked || editingLocked;
   const ratioHint = getSceneItemManifestAspectRatio(selectedItemKey);
 
   return (
@@ -173,6 +175,7 @@ export function SceneInspector({
           <input
             type="checkbox"
             checked={selectedItem.visible}
+            disabled={editingLocked}
             onChange={() => onToggleFlag(selectedItemKey, 'visible')}
           />
           <span>visible</span>
@@ -181,6 +184,7 @@ export function SceneInspector({
           <input
             type="checkbox"
             checked={selectedItem.locked}
+            disabled={editingLocked}
             onChange={() => onToggleFlag(selectedItemKey, 'locked')}
           />
           <span>locked</span>

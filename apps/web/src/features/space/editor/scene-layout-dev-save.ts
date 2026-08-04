@@ -20,6 +20,37 @@ export type SceneLayoutProjectSaveResult =
   | SceneLayoutProjectSaveSuccess
   | SceneLayoutProjectSaveFailure;
 
+interface SceneLayoutProjectSavePayload {
+  readonly status: string;
+  readonly message?: string;
+  readonly errors?: readonly string[];
+}
+
+function isSceneLayoutProjectSavePayload(value: unknown): value is SceneLayoutProjectSavePayload {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const payload = value as Record<string, unknown>;
+  if (typeof payload.status !== 'string') {
+    return false;
+  }
+
+  if ('message' in payload && payload.message !== undefined && typeof payload.message !== 'string') {
+    return false;
+  }
+
+  if (
+    'errors' in payload &&
+    payload.errors !== undefined &&
+    (!Array.isArray(payload.errors) || payload.errors.some((item) => typeof item !== 'string'))
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
 export async function saveSceneLayoutToProject(
   document: SceneLayoutDocument,
   fetchImpl: typeof fetch = fetch,
@@ -44,25 +75,33 @@ export async function saveSceneLayoutToProject(
       }),
     });
 
-    const payload = await response.json().catch(() => null) as
-      | {
-          readonly status?: string;
-          readonly message?: string;
-          readonly errors?: readonly string[];
-        }
-      | null;
+    const payload = await response.json().catch(() => null);
+    if (!isSceneLayoutProjectSavePayload(payload)) {
+      return {
+        ok: false,
+        message: '开发保存接口返回了无效响应，布局未确认写入工程文件。',
+      };
+    }
 
     if (!response.ok) {
       return {
         ok: false,
-        message: payload?.message ?? '写入工程文件失败，请稍后重试。',
-        errors: payload?.errors,
+        message: payload.message ?? '写入工程文件失败，请稍后重试。',
+        errors: payload.errors,
+      };
+    }
+
+    if (payload.status !== 'ok') {
+      return {
+        ok: false,
+        message: payload.message ?? '开发保存接口返回了异常状态，布局未确认写入工程文件。',
+        errors: payload.errors,
       };
     }
 
     return {
       ok: true,
-      message: payload?.message ?? '已保存到scene-layout.json，Git现在可以看到修改。',
+      message: payload.message ?? '已保存到scene-layout.json，Git现在可以看到修改。',
     };
   } catch {
     return {

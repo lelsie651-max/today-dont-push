@@ -1,9 +1,22 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { SceneEditor } from './SceneEditor';
 import { SCENE_LAYOUT_DRAFT_STORAGE_KEY } from './scene-editor-storage';
 import { defaultSceneLayoutDocument, serializeSceneLayoutDocument } from '../scene-layout';
+
+const documentsEqualMock = vi.hoisted(() =>
+  vi.fn((a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)),
+);
+
+vi.mock('./scene-editor-state', async () => {
+  const actual = await vi.importActual<typeof import('./scene-editor-state')>('./scene-editor-state');
+  return {
+    ...actual,
+    documentsEqual: documentsEqualMock,
+  };
+});
+
+import { SceneEditor } from './SceneEditor';
 
 function getOverlay(key: string) {
   return screen.getByTestId(`space-editor-target-${key}`);
@@ -12,6 +25,8 @@ function getOverlay(key: string) {
 describe('SceneEditor', () => {
   beforeEach(() => {
     window.localStorage.clear();
+    documentsEqualMock.mockClear();
+    documentsEqualMock.mockImplementation((a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b));
   });
 
   afterEach(() => {
@@ -320,8 +335,129 @@ describe('SceneEditor', () => {
     expect(screen.getByText('布局 JSON 已导出。')).toBeInTheDocument();
   });
 
+  it('修改后不足300ms立即保存，成功后草稿不会被旧定时器重新创建', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: 'ok',
+        message: '已保存到scene-layout.json，Git现在可以看到修改。',
+      }),
+    }));
+    vi.stubGlobal('fetch', fetchMock as unknown as typeof fetch);
+
+    render(<SceneEditor />);
+    fireEvent.click(screen.getByRole('button', { name: '在层级中选择 radio' }));
+    fireEvent.change(screen.getByLabelText('x'), { target: { value: '320' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存到工程' }));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const requestInit = (
+      fetchMock.mock.calls as unknown as Array<[unknown, RequestInit | undefined]>
+    )[0]?.[1];
+    const requestBody = requestInit?.body;
+    if (typeof requestBody !== 'string') {
+      throw new Error('save request body is missing');
+    }
+    expect(JSON.parse(requestBody).document.items.radio.x).toBe(320);
+    expect(screen.getByText('已保存到scene-layout.json，Git现在可以看到修改。')).toBeInTheDocument();
+    expect(window.localStorage.getItem(SCENE_LAYOUT_DRAFT_STORAGE_KEY)).toBeNull();
+
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+
+    expect(window.localStorage.getItem(SCENE_LAYOUT_DRAFT_STORAGE_KEY)).toBeNull();
+  });
+
+  it('保存期间所有修改入口不可用', async () => {
+    const pendingFetch = {
+      resolve: null as ((value: Response) => void) | null,
+    };
+    vi.stubGlobal('fetch', vi.fn(
+      () => new Promise<Response>((resolve) => {
+        pendingFetch.resolve = resolve;
+      }),
+    ) as unknown as typeof fetch);
+
+    render(<SceneEditor />);
+    fireEvent.click(screen.getByRole('button', { name: '在层级中选择 radio' }));
+    fireEvent.click(screen.getByRole('button', { name: '保存到工程' }));
+    const hierarchyItem = screen
+      .getByRole('button', { name: '在层级中选择 radio' })
+      .closest('.scene-editor-hierarchy-row');
+    if (!(hierarchyItem instanceof HTMLElement)) {
+      throw new Error('radio 层级项不存在');
+    }
+
+    expect(screen.getByRole('button', { name: '正在写入工程……' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Redo' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '恢复默认布局' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '清除本地草稿' })).toBeDisabled();
+    expect(within(hierarchyItem).getByRole('button', { name: '显示' })).toBeDisabled();
+    expect(within(hierarchyItem).getByRole('button', { name: '未锁定' })).toBeDisabled();
+    expect(screen.getByLabelText('x')).toBeDisabled();
+    expect(screen.getByLabelText('locked')).toBeDisabled();
+    expect(screen.getByRole('button', { name: '正在写入工程……' })).toBeInTheDocument();
+
+    if (pendingFetch.resolve !== null) {
+      pendingFetch.resolve({
+        ok: true,
+        json: async () => ({
+          status: 'ok',
+          message: '已保存到scene-layout.json，Git现在可以看到修改。',
+        }),
+      } as Response);
+    }
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '保存到工程' })).toBeEnabled();
+    });
+  });
+
+  it('保存期间方向键与 Ctrl+Z 不改变场景', async () => {
+    const pendingFetch = {
+      resolve: null as ((value: Response) => void) | null,
+    };
+    vi.stubGlobal('fetch', vi.fn(
+      () => new Promise<Response>((resolve) => {
+        pendingFetch.resolve = resolve;
+      }),
+    ) as unknown as typeof fetch);
+
+    render(<SceneEditor />);
+    fireEvent.click(screen.getByRole('button', { name: '在层级中选择 radio' }));
+    fireEvent.change(screen.getByLabelText('x'), { target: { value: '320' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存到工程' }));
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true }));
+    });
+
+    expect(screen.getByLabelText('x')).toHaveValue('320');
+
+    if (pendingFetch.resolve !== null) {
+      pendingFetch.resolve({
+        ok: true,
+        json: async () => ({
+          status: 'ok',
+          message: '已保存到scene-layout.json，Git现在可以看到修改。',
+        }),
+      } as Response);
+    }
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '保存到工程' })).toBeEnabled();
+    });
+  });
+
   it('保存到工程时会防止重复提交', async () => {
-    const user = userEvent.setup();
     const pendingFetch = {
       resolve: null as ((value: Response) => void) | null,
     };
@@ -335,8 +471,8 @@ describe('SceneEditor', () => {
     render(<SceneEditor />);
 
     const saveButton = screen.getByRole('button', { name: '保存到工程' });
-    await user.click(saveButton);
-    await user.click(saveButton);
+    fireEvent.click(saveButton);
+    fireEvent.click(saveButton);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('button', { name: '正在写入工程……' })).toBeDisabled();
@@ -345,6 +481,7 @@ describe('SceneEditor', () => {
       pendingFetch.resolve({
         ok: true,
         json: async () => ({
+          status: 'ok',
           message: '已保存到scene-layout.json，Git现在可以看到修改。',
         }),
       } as Response);
@@ -360,6 +497,7 @@ describe('SceneEditor', () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({
       ok: true,
       json: async () => ({
+        status: 'ok',
         message: '已保存到scene-layout.json，Git现在可以看到修改。',
       }),
     })) as unknown as typeof fetch);
@@ -380,11 +518,91 @@ describe('SceneEditor', () => {
     expect(window.localStorage.getItem(SCENE_LAYOUT_DRAFT_STORAGE_KEY)).toBeNull();
   });
 
+  it('保存成功但画布异常变化时保留草稿并提示仍有未保存修改', async () => {
+    const user = userEvent.setup();
+    const pendingFetch = {
+      resolve: null as ((value: Response) => void) | null,
+    };
+    vi.stubGlobal('fetch', vi.fn(
+      () => new Promise<Response>((resolve) => {
+        pendingFetch.resolve = resolve;
+      }),
+    ) as unknown as typeof fetch);
+
+    render(<SceneEditor />);
+    await user.click(screen.getByRole('button', { name: '在层级中选择 radio' }));
+    fireEvent.change(screen.getByLabelText('x'), { target: { value: '320' } });
+
+    await waitFor(() => {
+      expect(window.localStorage.getItem(SCENE_LAYOUT_DRAFT_STORAGE_KEY)).toContain('"x": 320');
+    });
+
+    await user.click(screen.getByRole('button', { name: '保存到工程' }));
+    documentsEqualMock.mockImplementation(() => false);
+
+    if (pendingFetch.resolve !== null) {
+      pendingFetch.resolve({
+        ok: true,
+        json: async () => ({
+          status: 'ok',
+          message: '已保存到scene-layout.json，Git现在可以看到修改。',
+        }),
+      } as Response);
+    }
+
+    await waitFor(() => {
+      expect(screen.getByText('工程已保存，但当前画布还有新的未保存修改。')).toBeInTheDocument();
+    });
+    expect(window.localStorage.getItem(SCENE_LAYOUT_DRAFT_STORAGE_KEY)).toContain('"x": 320');
+  });
+
+  it('保存失败后会恢复自动草稿', async () => {
+    vi.useFakeTimers();
+    const pendingFetch = {
+      resolve: null as ((value: Response) => void) | null,
+    };
+    vi.stubGlobal('fetch', vi.fn(
+      () => new Promise<Response>((resolve) => {
+        pendingFetch.resolve = resolve;
+      }),
+    ) as unknown as typeof fetch);
+
+    render(<SceneEditor />);
+    fireEvent.click(screen.getByRole('button', { name: '在层级中选择 radio' }));
+    fireEvent.change(screen.getByLabelText('x'), { target: { value: '320' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存到工程' }));
+
+    expect(window.localStorage.getItem(SCENE_LAYOUT_DRAFT_STORAGE_KEY)).toBeNull();
+
+    if (pendingFetch.resolve !== null) {
+      pendingFetch.resolve({
+        ok: false,
+        json: async () => ({
+          status: 'write_failed',
+          message: '写入工程文件失败，原始布局已保持不变。',
+        }),
+      } as Response);
+    }
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText('写入工程文件失败，原始布局已保持不变。')).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(350);
+    });
+
+    expect(window.localStorage.getItem(SCENE_LAYOUT_DRAFT_STORAGE_KEY)).toContain('"x": 320');
+  });
+
   it('保存失败时不会清除本地草稿且画布保持不变', async () => {
     const user = userEvent.setup();
     vi.stubGlobal('fetch', vi.fn(async () => ({
       ok: false,
       json: async () => ({
+        status: 'write_failed',
         message: '写入工程文件失败，原始布局已保持不变。',
       }),
     })) as unknown as typeof fetch);

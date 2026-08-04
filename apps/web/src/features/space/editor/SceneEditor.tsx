@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import Moveable, { type OnDrag, type OnResize } from 'react-moveable';
 import { SpaceScene } from '../SpaceScene';
 import {
@@ -12,6 +13,7 @@ import {
   canUndoSceneDocument,
   commitSceneDocument,
   createSceneEditorState,
+  documentsEqual,
   finishSceneInteraction,
   getSceneEditorDocument,
   nudgeSceneEditorItem,
@@ -41,6 +43,8 @@ interface SceneEditorProps {
   readonly debugAssets?: boolean;
 }
 
+type SceneEditorDocumentState = ReturnType<typeof createSceneEditorState>;
+
 function isTypingTarget(target: EventTarget | null) {
   return (
     target instanceof HTMLInputElement ||
@@ -51,31 +55,44 @@ function isTypingTarget(target: EventTarget | null) {
 }
 
 export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
-  const [{ editorState, notice }, setEditorState] = useState(() => {
+  const [{ initialEditorState, initialNotice }] = useState(() => {
     const initial = getInitialSceneLayoutDocument();
     return {
-      editorState: createSceneEditorState(initial.document),
-      notice: initial.notice,
+      initialEditorState: createSceneEditorState(initial.document),
+      initialNotice: initial.notice,
     };
   });
+  const [editorState, setEditorState] = useState<SceneEditorDocumentState>(initialEditorState);
+  const [notice, setNotice] = useState<string | null>(initialNotice);
   const [stageElement, setStageElement] = useState<HTMLDivElement | null>(null);
   const [targetElements, setTargetElements] = useState<Partial<Record<SceneItemKey, HTMLButtonElement | null>>>({});
   const targetRefCallbacks = useRef<Partial<Record<SceneItemKey, (element: HTMLButtonElement | null) => void>>>({});
   const stageMetrics = useStageMetrics(stageElement);
   const stageMetricsRef = useRef(stageMetrics);
+  const editorStateRef = useRef(editorState);
   const selectedItemKeyRef = useRef<SceneItemKey | null>(editorState.selectedItemKey);
   const autosaveFailureMessageRef = useRef<string | null>(null);
+  const autosaveTimeoutRef = useRef<number | null>(null);
+  const autosaveGenerationRef = useRef(0);
+  const saveLockRef = useRef(false);
+  const latestCanvasDocumentRef = useRef(getSceneEditorDocument(editorState));
+  const latestCommittedDocumentRef = useRef(editorState.history.present);
+  const lastProjectSavedDocumentRef = useRef<ReturnType<typeof getSceneEditorDocument> | null>(null);
   const [isSavingToProject, setIsSavingToProject] = useState(false);
 
   const document = getSceneEditorDocument(editorState);
   const selectedItemKey = editorState.selectedItemKey;
   const selectedItem = selectedItemKey === null ? null : document.items[selectedItemKey];
   const selectedTarget = selectedItemKey === null ? null : targetElements[selectedItemKey] ?? null;
-  const canTransform = Boolean(selectedItem && selectedItem.visible && !selectedItem.locked);
+  const editingLocked = isSavingToProject;
+  const canTransform = Boolean(selectedItem && selectedItem.visible && !selectedItem.locked && !editingLocked);
   const moveableMetrics = useMemo(
     () => createStageMoveableMetrics(stageMetrics, editorState.snapEnabled),
     [editorState.snapEnabled, stageMetrics],
   );
+  editorStateRef.current = editorState;
+  latestCanvasDocumentRef.current = document;
+  latestCommittedDocumentRef.current = editorState.history.present;
 
   useEffect(() => {
     stageMetricsRef.current = stageMetrics;
@@ -85,9 +102,69 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
     selectedItemKeyRef.current = selectedItemKey;
   }, [selectedItemKey]);
 
+  const clearAutosaveTimer = useCallback(() => {
+    if (autosaveTimeoutRef.current !== null) {
+      window.clearTimeout(autosaveTimeoutRef.current);
+      autosaveTimeoutRef.current = null;
+    }
+  }, []);
+
+  const commitEditorState = useCallback((
+    nextEditorState: SceneEditorDocumentState,
+    nextNotice?: string | null,
+  ) => {
+    editorStateRef.current = nextEditorState;
+    selectedItemKeyRef.current = nextEditorState.selectedItemKey;
+    latestCommittedDocumentRef.current = nextEditorState.history.present;
+    latestCanvasDocumentRef.current = getSceneEditorDocument(nextEditorState);
+    flushSync(() => {
+      setEditorState(nextEditorState);
+    });
+    if (nextNotice !== undefined) {
+      setNotice(nextNotice);
+    }
+  }, []);
+
+  const updateEditorState = useCallback((
+    transform: (current: SceneEditorDocumentState) => SceneEditorDocumentState,
+    nextNotice?: string | null,
+  ) => {
+    const nextEditorState = transform(editorStateRef.current);
+    commitEditorState(nextEditorState, nextNotice);
+  }, [commitEditorState]);
+
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      const result = saveSceneLayoutDraft(editorState.history.present);
+    clearAutosaveTimer();
+
+    if (isSavingToProject) {
+      return;
+    }
+
+    const lastSavedDocument = lastProjectSavedDocumentRef.current;
+    if (
+      lastSavedDocument !== null &&
+      documentsEqual(editorState.history.present, lastSavedDocument)
+    ) {
+      return;
+    }
+
+    const generation = autosaveGenerationRef.current;
+    autosaveTimeoutRef.current = window.setTimeout(() => {
+      autosaveTimeoutRef.current = null;
+      if (generation !== autosaveGenerationRef.current || saveLockRef.current) {
+        return;
+      }
+
+      const currentDocument = latestCommittedDocumentRef.current;
+      const latestSavedDocument = lastProjectSavedDocumentRef.current;
+      if (
+        latestSavedDocument !== null &&
+        documentsEqual(currentDocument, latestSavedDocument)
+      ) {
+        return;
+      }
+
+      const result = saveSceneLayoutDraft(currentDocument);
       if (result.ok) {
         autosaveFailureMessageRef.current = null;
         return;
@@ -98,31 +175,34 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
       }
 
       autosaveFailureMessageRef.current = result.message;
-      setEditorState((current) => ({
-        ...current,
-        notice: result.message,
-      }));
+      setNotice(result.message);
     }, 300);
 
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [editorState.history.present]);
+    return clearAutosaveTimer;
+  }, [clearAutosaveTimer, editorState.history.present, isSavingToProject]);
+
+  useEffect(() => clearAutosaveTimer, [clearAutosaveTimer]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      const isNudgeKey = event.key.startsWith('Arrow');
+      const isUndoKey = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z';
+      if (saveLockRef.current && (isUndoKey || isNudgeKey)) {
+        event.preventDefault();
+        return;
+      }
+
       if (isTypingTarget(event.target)) {
         return;
       }
 
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+      if (isUndoKey) {
         event.preventDefault();
-        setEditorState((current) => ({
-          ...current,
-          editorState: event.shiftKey
-            ? redoSceneDocument(current.editorState)
-            : undoSceneDocument(current.editorState),
-        }));
+        updateEditorState((current) => (
+          event.shiftKey
+            ? redoSceneDocument(current)
+            : undoSceneDocument(current)
+        ));
         return;
       }
 
@@ -144,22 +224,21 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
       }
 
       event.preventDefault();
-      setEditorState((current) => ({
-        ...current,
-        editorState: nudgeSceneEditorItem(
-          current.editorState,
+      updateEditorState((current) => (
+        nudgeSceneEditorItem(
+          current,
           selectedItemKey,
           delta.dx,
           delta.dy,
-        ),
-      }));
+        )
+      ));
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selectedItemKey, selectedItem?.locked]);
+  }, [selectedItemKey, selectedItem?.locked, updateEditorState]);
 
   const registerEditorTarget = useCallback(
     (key: SceneItemKey) => {
@@ -190,63 +269,77 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
     patch: SceneLayoutPatch,
     options?: { readonly preferredDimension?: 'width' | 'height' },
   ) => {
-    setEditorState((current) => ({
-      ...current,
-      editorState: updateSceneEditorItem(current.editorState, key, patch, {
+    if (saveLockRef.current) {
+      return;
+    }
+
+    updateEditorState((current) => (
+      updateSceneEditorItem(current, key, patch, {
         preferredDimension: options?.preferredDimension,
-      }),
-    }));
+      })
+    ));
   };
 
   const handleRestoreDefault = () => {
+    if (saveLockRef.current) {
+      return;
+    }
+
     if (!window.confirm('确定要恢复默认布局吗？当前画布会被重置。')) {
       return;
     }
 
-    setEditorState((current) => ({
-      notice: '已恢复默认布局。',
-      editorState: commitSceneDocument(
-        current.editorState,
-        defaultSceneLayoutDocument,
-      ),
-    }));
+    updateEditorState(
+      (current) => commitSceneDocument(current, defaultSceneLayoutDocument),
+      '已恢复默认布局。',
+    );
   };
 
   const handleSaveToProject = useCallback(async () => {
-    if (isSavingToProject) {
+    if (saveLockRef.current) {
       return;
     }
 
-    const validation = validateSceneLayoutDocument(document);
+    const saveCandidate = latestCanvasDocumentRef.current;
+    const validation = validateSceneLayoutDocument(saveCandidate);
     if (!validation.ok || validation.document === null) {
-      setEditorState((current) => ({
-        ...current,
-        notice: validation.errors[0] ?? '当前布局校验失败，无法写入工程文件。',
-      }));
+      setNotice(validation.errors[0] ?? '当前布局校验失败，无法写入工程文件。');
       return;
     }
 
+    const saveSnapshot = validation.document;
+    saveLockRef.current = true;
+    autosaveGenerationRef.current += 1;
+    clearAutosaveTimer();
     setIsSavingToProject(true);
-    const saveResult = await saveSceneLayoutToProject(validation.document);
-    if (!saveResult.ok) {
-      setEditorState((current) => ({
-        ...current,
-        notice: saveResult.message,
-      }));
-      setIsSavingToProject(false);
-      return;
-    }
+    setNotice('正在写入工程……');
 
-    const clearResult = clearSceneLayoutDraft();
-    autosaveFailureMessageRef.current = null;
-    setEditorState((current) => ({
-      ...current,
-      notice: clearResult.ok
-        ? saveResult.message
-        : `${saveResult.message} 但未能清除本地草稿：${clearResult.message}`,
-    }));
-    setIsSavingToProject(false);
-  }, [document, isSavingToProject]);
+    try {
+      const saveResult = await saveSceneLayoutToProject(saveSnapshot);
+      if (!saveResult.ok) {
+        setNotice(saveResult.message);
+        return;
+      }
+
+      autosaveFailureMessageRef.current = null;
+      lastProjectSavedDocumentRef.current = saveSnapshot;
+
+      if (!documentsEqual(latestCanvasDocumentRef.current, saveSnapshot)) {
+        setNotice('工程已保存，但当前画布还有新的未保存修改。');
+        return;
+      }
+
+      const clearResult = clearSceneLayoutDraft();
+      setNotice(
+        clearResult.ok
+          ? saveResult.message
+          : `${saveResult.message} 但未能清除本地草稿：${clearResult.message}`,
+      );
+    } finally {
+      saveLockRef.current = false;
+      setIsSavingToProject(false);
+    }
+  }, [clearAutosaveTimer]);
 
   return (
     <section className="scene-editor" aria-label="场景编辑器 V1">
@@ -254,44 +347,48 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
         canUndo={canUndoSceneDocument(editorState)}
         canRedo={canRedoSceneDocument(editorState)}
         snapEnabled={editorState.snapEnabled}
+        editingLocked={editingLocked}
         isSavingToProject={isSavingToProject}
         onUndo={() => {
-          setEditorState((current) => ({
-            ...current,
-            editorState: undoSceneDocument(current.editorState),
-          }));
+          if (saveLockRef.current) {
+            return;
+          }
+          updateEditorState((current) => undoSceneDocument(current));
         }}
         onRedo={() => {
-          setEditorState((current) => ({
-            ...current,
-            editorState: redoSceneDocument(current.editorState),
-          }));
+          if (saveLockRef.current) {
+            return;
+          }
+          updateEditorState((current) => redoSceneDocument(current));
         }}
         onToggleSnap={() => {
-          setEditorState((current) => ({
-            ...current,
-            editorState: setSceneEditorSnapEnabled(current.editorState, !current.editorState.snapEnabled),
-          }));
+          if (saveLockRef.current) {
+            return;
+          }
+          updateEditorState((current) => (
+            setSceneEditorSnapEnabled(current, !current.snapEnabled)
+          ));
         }}
         onRestoreDefault={handleRestoreDefault}
         onClearDraft={() => {
+          if (saveLockRef.current) {
+            return;
+          }
           const clearResult = clearSceneLayoutDraft();
-          setEditorState((current) => ({
-            ...current,
-            notice: clearResult.ok
+          setNotice(
+            clearResult.ok
               ? '本地草稿已清除，刷新后会回到默认布局。'
               : clearResult.message,
-          }));
+          );
         }}
         onSaveToProject={handleSaveToProject}
         onExport={() => {
           const exportResult = downloadSceneLayoutDocument(document);
-          setEditorState((current) => ({
-            ...current,
-            notice: exportResult.ok
+          setNotice(
+            exportResult.ok
               ? '布局 JSON 已导出。'
               : exportResult.error ?? '导出失败。',
-          }));
+          );
         }}
       />
 
@@ -305,23 +402,25 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
         <SceneHierarchy
           document={document}
           selectedItemKey={selectedItemKey}
+          editingLocked={editingLocked}
           onSelectItem={(key) => {
-            setEditorState((current) => ({
-              ...current,
-              editorState: selectSceneItem(current.editorState, key),
-            }));
+            updateEditorState((current) => selectSceneItem(current, key));
           }}
           onToggleVisible={(key) => {
-            setEditorState((current) => ({
-              ...current,
-              editorState: toggleSceneEditorItemFlag(current.editorState, key, 'visible'),
-            }));
+            if (saveLockRef.current) {
+              return;
+            }
+            updateEditorState((current) => (
+              toggleSceneEditorItemFlag(current, key, 'visible')
+            ));
           }}
           onToggleLocked={(key) => {
-            setEditorState((current) => ({
-              ...current,
-              editorState: toggleSceneEditorItemFlag(current.editorState, key, 'locked'),
-            }));
+            if (saveLockRef.current) {
+              return;
+            }
+            updateEditorState((current) => (
+              toggleSceneEditorItemFlag(current, key, 'locked')
+            ));
           }}
         />
 
@@ -338,10 +437,7 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
             stageRef={setStageElement}
             registerEditorTarget={registerEditorTarget}
             onSelectItem={(key) => {
-              setEditorState((current) => ({
-                ...current,
-                editorState: selectSceneItem(current.editorState, key),
-              }));
+              updateEditorState((current) => selectSceneItem(current, key));
             }}
           />
           {selectedTarget !== null && selectedItem !== null && selectedItem.visible ? (
@@ -361,30 +457,32 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
               throttleDrag={0}
               throttleResize={0}
               onDrag={({ left, top, width, height }: OnDrag) => {
+                if (saveLockRef.current) {
+                  return;
+                }
                 const activeItemKey = selectedItemKeyRef.current;
                 if (activeItemKey === null) {
                   return;
                 }
-                setEditorState((current) => ({
-                  ...current,
-                  editorState: previewDragInScreenSpace(
-                    current.editorState,
+                updateEditorState((current) => (
+                  previewDragInScreenSpace(
+                    current,
                     activeItemKey,
                     { left, top, width, height },
                     stageMetricsRef.current.scale,
-                  ),
-                }));
+                  )
+                ));
               }}
               onDragEnd={({ isDrag }) => {
-                if (!isDrag) {
+                if (!isDrag || saveLockRef.current) {
                   return;
                 }
-                setEditorState((current) => ({
-                  ...current,
-                  editorState: finishSceneInteraction(current.editorState),
-                }));
+                updateEditorState((current) => finishSceneInteraction(current));
               }}
               onResize={(event: OnResize) => {
+                if (saveLockRef.current) {
+                  return;
+                }
                 const activeItemKey = selectedItemKeyRef.current;
                 if (activeItemKey === null) {
                   return;
@@ -393,10 +491,9 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
                   Math.abs(event.delta[0]) >= Math.abs(event.delta[1]) ? 'width' : 'height';
                 const left = event.drag.left;
                 const top = event.drag.top;
-                setEditorState((current) => ({
-                  ...current,
-                  editorState: previewResizeInScreenSpace(
-                    current.editorState,
+                updateEditorState((current) => (
+                  previewResizeInScreenSpace(
+                    current,
                     activeItemKey,
                     {
                       left,
@@ -406,17 +503,14 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
                     },
                     stageMetricsRef.current.scale,
                     preferredDimension,
-                  ),
-                }));
+                  )
+                ));
               }}
               onResizeEnd={({ isDrag }) => {
-                if (!isDrag) {
+                if (!isDrag || saveLockRef.current) {
                   return;
                 }
-                setEditorState((current) => ({
-                  ...current,
-                  editorState: finishSceneInteraction(current.editorState),
-                }));
+                updateEditorState((current) => finishSceneInteraction(current));
               }}
             />
           ) : null}
@@ -425,12 +519,15 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
         <SceneInspector
           selectedItemKey={selectedItemKey}
           selectedItem={selectedItem}
+          editingLocked={editingLocked}
           onPatchItem={handlePatchItem}
           onToggleFlag={(key, flag) => {
-            setEditorState((current) => ({
-              ...current,
-              editorState: toggleSceneEditorItemFlag(current.editorState, key, flag),
-            }));
+            if (saveLockRef.current) {
+              return;
+            }
+            updateEditorState((current) => (
+              toggleSceneEditorItemFlag(current, key, flag)
+            ));
           }}
         />
       </div>

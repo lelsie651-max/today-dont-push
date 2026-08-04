@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { promises as nodeFs } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
@@ -39,6 +40,8 @@ export interface SceneLayoutDevPluginOptions {
   readonly maxBackups?: number;
   readonly now?: () => Date;
   readonly fileSystem?: SceneLayoutDevFileSystem;
+  readonly uniqueIdFactory?: () => string;
+  readonly saveQueue?: SceneLayoutSaveQueue;
 }
 
 export interface SceneLayoutDevHttpRequest {
@@ -68,6 +71,10 @@ export interface SceneLayoutWriteFailure {
 }
 
 export type SceneLayoutWriteResult = SceneLayoutWriteSuccess | SceneLayoutWriteFailure;
+
+export interface SceneLayoutSaveQueue {
+  enqueue<T>(task: () => Promise<T>): Promise<T>;
+}
 
 const defaultFileSystem: SceneLayoutDevFileSystem = {
   async readFile(filePath) {
@@ -133,6 +140,16 @@ function createBackupTimestamp(now: Date) {
   return parts.join('');
 }
 
+const SCENE_LAYOUT_BACKUP_FILE_PATTERN = /^scene-layout\.\d{8}T\d{6}_\d{3}(?:\.[A-Za-z0-9_-]+)?\.json$/;
+
+function sanitizeUniqueId(value: string) {
+  return value.replace(/[^A-Za-z0-9_-]/g, '_');
+}
+
+function createUniqueId(uniqueIdFactory?: () => string) {
+  return sanitizeUniqueId(uniqueIdFactory?.() ?? randomUUID());
+}
+
 function createWritePaths(projectRoot: string) {
   return {
     layoutFilePath: path.resolve(projectRoot, SCENE_LAYOUT_FILE_RELATIVE_PATH),
@@ -154,7 +171,7 @@ async function trimOldBackups(
   maxBackups: number,
 ) {
   const fileNames = (await fileSystem.readdir(backupDirPath))
-    .filter((fileName) => fileName.endsWith('.json'))
+    .filter((fileName) => SCENE_LAYOUT_BACKUP_FILE_PATTERN.test(fileName))
     .sort()
     .reverse();
 
@@ -163,6 +180,18 @@ async function trimOldBackups(
       safeUnlink(fileSystem, path.join(backupDirPath, fileName)),
     ),
   );
+}
+
+export function createSceneLayoutSaveQueue(): SceneLayoutSaveQueue {
+  let tail = Promise.resolve();
+
+  return {
+    async enqueue<T>(task: () => Promise<T>) {
+      const run = tail.catch(() => undefined).then(task);
+      tail = run.then(() => undefined, () => undefined);
+      return run;
+    },
+  };
 }
 
 export async function saveSceneLayoutDocumentToProject(
@@ -184,10 +213,11 @@ export async function saveSceneLayoutDocumentToProject(
   const { layoutFilePath, backupDirPath } = createWritePaths(options.projectRoot);
   const serialized = serializeSceneLayoutDocument(validation.document);
   const timestamp = createBackupTimestamp(now());
-  const backupFileName = `scene-layout.${timestamp}.json`;
+  const uniqueId = createUniqueId(options.uniqueIdFactory);
+  const backupFileName = `scene-layout.${timestamp}.${uniqueId}.json`;
   const backupFilePath = path.join(backupDirPath, backupFileName);
-  const tempFilePath = `${layoutFilePath}.${timestamp}.tmp`;
-  const swapFilePath = `${layoutFilePath}.${timestamp}.swap`;
+  const tempFilePath = `${layoutFilePath}.${timestamp}.${uniqueId}.tmp`;
+  const swapFilePath = `${layoutFilePath}.${timestamp}.${uniqueId}.swap`;
 
   let movedOriginal = false;
 
@@ -315,7 +345,10 @@ export async function handleSceneLayoutDevRequest(
     });
   }
 
-  const writeResult = await saveSceneLayoutDocumentToProject(parsedBody.document, options);
+  const saveQueue = options.saveQueue;
+  const writeResult = saveQueue === undefined
+    ? await saveSceneLayoutDocumentToProject(parsedBody.document, options)
+    : await saveQueue.enqueue(() => saveSceneLayoutDocumentToProject(parsedBody.document, options));
   if (!writeResult.ok) {
     return jsonResponse(writeResult.status, {
       status: writeResult.status === 400 ? 'invalid_layout' : 'write_failed',
@@ -388,6 +421,8 @@ function getAllowedOrigin(request: IncomingMessage, server: ViteDevServer) {
 export function createSceneLayoutDevPlugin(
   options: SceneLayoutDevPluginOptions,
 ): Plugin {
+  const saveQueue = options.saveQueue ?? createSceneLayoutSaveQueue();
+
   return {
     name: 'scene-layout-dev-plugin',
     apply: 'serve',
@@ -417,7 +452,10 @@ export function createSceneLayoutDevPlugin(
             bodyText: bodyResult.bodyText,
             allowedOrigin: getAllowedOrigin(request, server),
           },
-          options,
+          {
+            ...options,
+            saveQueue,
+          },
         );
         writeHttpResponse(response, payload);
       });

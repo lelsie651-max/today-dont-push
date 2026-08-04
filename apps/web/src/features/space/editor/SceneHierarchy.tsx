@@ -4,6 +4,7 @@ import type { SceneItemKey, SceneLayoutDocument } from '../scene-layout';
 interface SceneHierarchyProps {
   readonly document: SceneLayoutDocument;
   readonly selectedItemKey: SceneItemKey | null;
+  readonly editingLocked?: boolean;
   readonly onSelectItem: (key: SceneItemKey) => void;
   readonly onToggleVisible: (key: SceneItemKey) => void;
   readonly onToggleLocked: (key: SceneItemKey) => void;
@@ -12,6 +13,7 @@ interface SceneHierarchyProps {
 export function SceneHierarchy({
   document,
   selectedItemKey,
+  editingLocked = false,
   onSelectItem,
   onToggleVisible,
   onToggleLocked,
@@ -47,6 +49,7 @@ export function SceneHierarchy({
                     className="scene-editor-chip"
                     onClick={() => onToggleVisible(sceneItemKey)}
                     aria-pressed={item.visible}
+                    disabled={editingLocked}
                   >
                     {item.visible ? '显示' : '隐藏'}
                   </button>
@@ -55,6 +58,7 @@ export function SceneHierarchy({
                     className="scene-editor-chip"
                     onClick={() => onToggleLocked(sceneItemKey)}
                     aria-pressed={item.locked}
+                    disabled={editingLocked}
                   >
                     {item.locked ? '已锁定' : '未锁定'}
                   </button>

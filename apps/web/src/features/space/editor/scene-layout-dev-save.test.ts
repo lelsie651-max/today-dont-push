@@ -10,6 +10,7 @@ describe('scene-layout-dev-save', () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
       json: async () => ({
+        status: 'ok',
         message: '已保存到scene-layout.json，Git现在可以看到修改。',
       }),
     })) as unknown as typeof fetch;
@@ -43,5 +44,17 @@ describe('scene-layout-dev-save', () => {
     expect(result.ok).toBe(false);
     expect(result.message).toContain('items.radio.zIndex');
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('HTTP 200 但返回非法 payload 时会判定为失败', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({}),
+    })) as unknown as typeof fetch;
+
+    const result = await saveSceneLayoutToProject(defaultSceneLayoutDocument, fetchMock);
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain('无效响应');
   });
 });
