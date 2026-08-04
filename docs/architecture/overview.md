@@ -14,7 +14,7 @@
 | `apps/web` | 应用 | React 前端，负责页面与交互 | 仅占位页「今天别硬撑」 |
 | `apps/api` | 应用 | Fastify 后端，组合根：装配应用层与基础设施，对外提供 HTTP 接口 | 仅 `GET /health` 与环境变量校验 |
 | `packages/application` | 应用层 | 用例编排，协调 domain 完成业务 | 空占位，仅说明与占位测试 |
-| `packages/domain` | 领域层 | 领域模型与业务规则的唯一归属地 | 空占位，仅说明与占位测试 |
+| `packages/domain` | 领域层 | 领域模型与业务规则的唯一归属地 | 纯领域模型：今日状态、时间窗口、固定承诺、弹性任务、每日规划输入（见 `docs/product/core-domain.md`） |
 | `packages/contracts` | 契约 | 用 Zod 定义跨端共享的数据契约与类型 | `HealthResponseSchema` |
 | `packages/database` | 基础设施适配器 | Drizzle + PostgreSQL 数据访问 | 结构预留，无任何业务表 |
 | `packages/ai-core` | 基础设施适配器 | AI 能力的统一抽象（AIProvider 接口） | 仅空接口，不接入任何模型 |

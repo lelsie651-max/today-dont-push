@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "领域层（本轮为空占位，不含任何业务逻辑）",
+  "description": "领域层：今日状态、可用时间、固定承诺、弹性任务、最低可行版本与每日规划输入",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
