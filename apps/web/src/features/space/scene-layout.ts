@@ -101,8 +101,8 @@ function isBoolean(value: unknown): value is boolean {
   return typeof value === 'boolean';
 }
 
-function isFiniteInteger(value: unknown): value is number {
-  return typeof value === 'number' && Number.isInteger(value) && Number.isFinite(value);
+function isSafeIntegerValue(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value);
 }
 
 function validateSceneLayoutItem(
@@ -128,20 +128,20 @@ function validateSceneLayoutItem(
   const locked = value.locked;
   const keepRatio = value.keepRatio;
 
-  if (!isFiniteInteger(x)) {
-    errors.push(`items.${key}.x 必须是有限整数`);
+  if (!isSafeIntegerValue(x)) {
+    errors.push(`items.${key}.x 必须是安全整数`);
   }
-  if (!isFiniteInteger(y)) {
-    errors.push(`items.${key}.y 必须是有限整数`);
+  if (!isSafeIntegerValue(y)) {
+    errors.push(`items.${key}.y 必须是安全整数`);
   }
-  if (!isFiniteInteger(width)) {
-    errors.push(`items.${key}.width 必须是有限整数`);
+  if (!isSafeIntegerValue(width)) {
+    errors.push(`items.${key}.width 必须是安全整数`);
   }
-  if (!isFiniteInteger(height)) {
-    errors.push(`items.${key}.height 必须是有限整数`);
+  if (!isSafeIntegerValue(height)) {
+    errors.push(`items.${key}.height 必须是安全整数`);
   }
-  if (!isFiniteInteger(zIndex)) {
-    errors.push(`items.${key}.zIndex 必须是有限整数`);
+  if (!isSafeIntegerValue(zIndex)) {
+    errors.push(`items.${key}.zIndex 必须是安全整数`);
   }
   if (!isBoolean(visible)) {
     errors.push(`items.${key}.visible 必须是布尔值`);
@@ -279,10 +279,6 @@ export function parseSceneLayoutDraft(input: string): SceneLayoutValidationResul
       document: null,
     };
   }
-}
-
-function isSafeInteger(value: unknown): value is number {
-  return typeof value === 'number' && Number.isSafeInteger(value);
 }
 
 function clampWithinRange(value: number, min: number, max: number) {
@@ -522,7 +518,7 @@ export function validateSceneInspectorValue(
   const value = Number.parseInt(rawValue, 10);
 
   if (field === 'zIndex') {
-    if (!isSafeInteger(value)) {
+    if (!isSafeIntegerValue(value)) {
       return {
         ok: false,
         error: 'zIndex 必须是安全整数',
@@ -531,7 +527,7 @@ export function validateSceneInspectorValue(
     return { ok: true, error: null };
   }
 
-  if ((field === 'x' || field === 'y') && !isSafeInteger(value)) {
+  if ((field === 'x' || field === 'y') && !isSafeIntegerValue(value)) {
     return {
       ok: false,
       error: `${field} 必须是安全整数`,

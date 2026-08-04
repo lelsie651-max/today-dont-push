@@ -1,8 +1,9 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SceneEditor } from './SceneEditor';
 import { SCENE_LAYOUT_DRAFT_STORAGE_KEY } from './scene-editor-storage';
+import { defaultSceneLayoutDocument, serializeSceneLayoutDocument } from '../scene-layout';
 
 function getOverlay(key: string) {
   return screen.getByTestId(`space-editor-target-${key}`);
@@ -135,6 +136,49 @@ describe('SceneEditor', () => {
     expect(screen.getByLabelText('x')).toHaveValue('238');
   });
 
+  it('输入框聚焦时 Ctrl+Z 不会触发场景撤销', async () => {
+    const user = userEvent.setup();
+    render(<SceneEditor />);
+
+    await user.click(screen.getByRole('button', { name: '在层级中选择 radio' }));
+    fireEvent.change(screen.getByLabelText('x'), { target: { value: '300' } });
+
+    const xInput = screen.getByLabelText('x');
+    xInput.focus();
+
+    await act(async () => {
+      xInput.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'z',
+        ctrlKey: true,
+        bubbles: true,
+      }));
+    });
+
+    expect(screen.getByLabelText('x')).toHaveValue('300');
+  });
+
+  it('非输入区域 Ctrl+Z 和 Ctrl+Shift+Z 继续正常撤销与重做', async () => {
+    const user = userEvent.setup();
+    render(<SceneEditor />);
+
+    await user.click(screen.getByRole('button', { name: '在层级中选择 radio' }));
+    fireEvent.change(screen.getByLabelText('x'), { target: { value: '300' } });
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true }));
+    });
+    expect(screen.getByLabelText('x')).toHaveValue('238');
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'z',
+        ctrlKey: true,
+        shiftKey: true,
+      }));
+    });
+    expect(screen.getByLabelText('x')).toHaveValue('300');
+  });
+
   it('undo 和 redo 可以正确恢复', async () => {
     const user = userEvent.setup();
     render(<SceneEditor />);
@@ -183,6 +227,55 @@ describe('SceneEditor', () => {
     expect(screen.getByRole('button', { name: '在层级中选择 radio' })).toBeInTheDocument();
   });
 
+  it('读取本地草稿抛错时页面不会崩溃', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError');
+    });
+
+    render(<SceneEditor />);
+
+    expect(screen.getByText('浏览器当前拒绝读取本地草稿，已跳过恢复。')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '在层级中选择 radio' })).toBeInTheDocument();
+  });
+
+  it('自动保存失败时只显示一次非阻塞提示', async () => {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError');
+    });
+
+    render(<SceneEditor />);
+    fireEvent.click(screen.getByRole('button', { name: '在层级中选择 radio' }));
+    fireEvent.change(screen.getByLabelText('x'), { target: { value: '320' } });
+
+    await waitFor(() => {
+      expect(setItemSpy).toHaveBeenCalledTimes(1);
+    });
+    expect(
+      screen.getByText('浏览器当前拒绝写入本地草稿，未能自动保存草稿。'),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('x'), { target: { value: '321' } });
+    await waitFor(() => {
+      expect(setItemSpy).toHaveBeenCalledTimes(2);
+    });
+
+    expect(
+      screen.getAllByText('浏览器当前拒绝写入本地草稿，未能自动保存草稿。'),
+    ).toHaveLength(1);
+  });
+
+  it('清除本地草稿抛错时页面不会崩溃', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError');
+    });
+
+    render(<SceneEditor />);
+    await user.click(screen.getByRole('button', { name: '清除本地草稿' }));
+
+    expect(screen.getByText('浏览器当前拒绝删除本地草稿，未能清除本地草稿。')).toBeInTheDocument();
+  });
+
   it('隐藏已选物件后重新显示，控制框会立即恢复', async () => {
     const user = userEvent.setup();
     render(<SceneEditor />);
@@ -225,5 +318,102 @@ describe('SceneEditor', () => {
     expect(clickSpy).toHaveBeenCalledTimes(1);
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:scene-layout');
     expect(screen.getByText('布局 JSON 已导出。')).toBeInTheDocument();
+  });
+
+  it('保存到工程时会防止重复提交', async () => {
+    const user = userEvent.setup();
+    const pendingFetch = {
+      resolve: null as ((value: Response) => void) | null,
+    };
+    const fetchMock = vi.fn(
+      () => new Promise<Response>((resolve) => {
+        pendingFetch.resolve = resolve;
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<SceneEditor />);
+
+    const saveButton = screen.getByRole('button', { name: '保存到工程' });
+    await user.click(saveButton);
+    await user.click(saveButton);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: '正在写入工程……' })).toBeDisabled();
+
+    if (pendingFetch.resolve !== null) {
+      pendingFetch.resolve({
+        ok: true,
+        json: async () => ({
+          message: '已保存到scene-layout.json，Git现在可以看到修改。',
+        }),
+      } as Response);
+    }
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '保存到工程' })).toBeEnabled();
+    });
+  });
+
+  it('保存成功后会清除本地草稿', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        message: '已保存到scene-layout.json，Git现在可以看到修改。',
+      }),
+    })) as unknown as typeof fetch);
+
+    render(<SceneEditor />);
+    await user.click(screen.getByRole('button', { name: '在层级中选择 radio' }));
+    fireEvent.change(screen.getByLabelText('x'), { target: { value: '320' } });
+
+    await waitFor(() => {
+      expect(window.localStorage.getItem(SCENE_LAYOUT_DRAFT_STORAGE_KEY)).toContain('"x": 320');
+    });
+
+    await user.click(screen.getByRole('button', { name: '保存到工程' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('已保存到scene-layout.json，Git现在可以看到修改。')).toBeInTheDocument();
+    });
+    expect(window.localStorage.getItem(SCENE_LAYOUT_DRAFT_STORAGE_KEY)).toBeNull();
+  });
+
+  it('保存失败时不会清除本地草稿且画布保持不变', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: false,
+      json: async () => ({
+        message: '写入工程文件失败，原始布局已保持不变。',
+      }),
+    })) as unknown as typeof fetch);
+
+    const draft = {
+      ...defaultSceneLayoutDocument,
+      items: {
+        ...defaultSceneLayoutDocument.items,
+        radio: {
+          ...defaultSceneLayoutDocument.items.radio,
+          x: 320,
+        },
+      },
+    };
+    window.localStorage.setItem(
+      SCENE_LAYOUT_DRAFT_STORAGE_KEY,
+      serializeSceneLayoutDocument(draft),
+    );
+
+    render(<SceneEditor />);
+    await user.click(screen.getByRole('button', { name: '在层级中选择 radio' }));
+    expect(screen.getByLabelText('x')).toHaveValue('320');
+
+    await user.click(screen.getByRole('button', { name: '保存到工程' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('写入工程文件失败，原始布局已保持不变。')).toBeInTheDocument();
+    });
+    expect(window.localStorage.getItem(SCENE_LAYOUT_DRAFT_STORAGE_KEY)).toContain('"x": 320');
+    expect(screen.getByLabelText('x')).toHaveValue('320');
   });
 });

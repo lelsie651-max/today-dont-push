@@ -2,24 +2,28 @@ interface SceneToolbarProps {
   readonly canUndo: boolean;
   readonly canRedo: boolean;
   readonly snapEnabled: boolean;
+  readonly isSavingToProject?: boolean;
   readonly onUndo: () => void;
   readonly onRedo: () => void;
   readonly onToggleSnap: () => void;
   readonly onRestoreDefault: () => void;
   readonly onClearDraft: () => void;
   readonly onExport: () => void;
+  readonly onSaveToProject?: () => void;
 }
 
 export function SceneToolbar({
   canUndo,
   canRedo,
   snapEnabled,
+  isSavingToProject = false,
   onUndo,
   onRedo,
   onToggleSnap,
   onRestoreDefault,
   onClearDraft,
   onExport,
+  onSaveToProject,
 }: SceneToolbarProps) {
   return (
     <section className="scene-editor-toolbar" aria-label="场景编辑器工具栏">
@@ -46,6 +50,16 @@ export function SceneToolbar({
         <button type="button" className="scene-editor-button" onClick={onClearDraft}>
           清除本地草稿
         </button>
+        {onSaveToProject ? (
+          <button
+            type="button"
+            className="scene-editor-button"
+            onClick={onSaveToProject}
+            disabled={isSavingToProject}
+          >
+            {isSavingToProject ? '正在写入工程……' : '保存到工程'}
+          </button>
+        ) : null}
         <button type="button" className="scene-editor-button is-primary" onClick={onExport}>
           导出布局
         </button>

@@ -5,6 +5,7 @@ import {
   defaultSceneLayoutDocument,
   type SceneItemKey,
   type SceneLayoutPatch,
+  validateSceneLayoutDocument,
 } from '../scene-layout';
 import {
   canRedoSceneDocument,
@@ -29,6 +30,7 @@ import {
   getInitialSceneLayoutDocument,
   saveSceneLayoutDraft,
 } from './scene-editor-storage';
+import { saveSceneLayoutToProject } from './scene-layout-dev-save';
 import { SceneHierarchy } from './SceneHierarchy';
 import { SceneInspector } from './SceneInspector';
 import { SceneToolbar } from './SceneToolbar';
@@ -62,6 +64,8 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
   const stageMetrics = useStageMetrics(stageElement);
   const stageMetricsRef = useRef(stageMetrics);
   const selectedItemKeyRef = useRef<SceneItemKey | null>(editorState.selectedItemKey);
+  const autosaveFailureMessageRef = useRef<string | null>(null);
+  const [isSavingToProject, setIsSavingToProject] = useState(false);
 
   const document = getSceneEditorDocument(editorState);
   const selectedItemKey = editorState.selectedItemKey;
@@ -83,7 +87,21 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      saveSceneLayoutDraft(editorState.history.present);
+      const result = saveSceneLayoutDraft(editorState.history.present);
+      if (result.ok) {
+        autosaveFailureMessageRef.current = null;
+        return;
+      }
+
+      if (autosaveFailureMessageRef.current === result.message) {
+        return;
+      }
+
+      autosaveFailureMessageRef.current = result.message;
+      setEditorState((current) => ({
+        ...current,
+        notice: result.message,
+      }));
     }, 300);
 
     return () => {
@@ -93,6 +111,10 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (isTypingTarget(event.target)) {
+        return;
+      }
+
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
         event.preventDefault();
         setEditorState((current) => ({
@@ -104,7 +126,7 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
         return;
       }
 
-      if (selectedItemKey === null || selectedItem?.locked || isTypingTarget(event.target)) {
+      if (selectedItemKey === null || selectedItem?.locked) {
         return;
       }
 
@@ -190,12 +212,49 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
     }));
   };
 
+  const handleSaveToProject = useCallback(async () => {
+    if (isSavingToProject) {
+      return;
+    }
+
+    const validation = validateSceneLayoutDocument(document);
+    if (!validation.ok || validation.document === null) {
+      setEditorState((current) => ({
+        ...current,
+        notice: validation.errors[0] ?? '当前布局校验失败，无法写入工程文件。',
+      }));
+      return;
+    }
+
+    setIsSavingToProject(true);
+    const saveResult = await saveSceneLayoutToProject(validation.document);
+    if (!saveResult.ok) {
+      setEditorState((current) => ({
+        ...current,
+        notice: saveResult.message,
+      }));
+      setIsSavingToProject(false);
+      return;
+    }
+
+    const clearResult = clearSceneLayoutDraft();
+    autosaveFailureMessageRef.current = null;
+    setEditorState((current) => ({
+      ...current,
+      notice: clearResult.ok
+        ? saveResult.message
+        : `${saveResult.message} 但未能清除本地草稿：${clearResult.message}`,
+    }));
+    setIsSavingToProject(false);
+  }, [document, isSavingToProject]);
+
   return (
     <section className="scene-editor" aria-label="场景编辑器 V1">
       <SceneToolbar
         canUndo={canUndoSceneDocument(editorState)}
         canRedo={canRedoSceneDocument(editorState)}
         snapEnabled={editorState.snapEnabled}
+        isSavingToProject={isSavingToProject}
         onUndo={() => {
           setEditorState((current) => ({
             ...current,
@@ -216,12 +275,15 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
         }}
         onRestoreDefault={handleRestoreDefault}
         onClearDraft={() => {
-          clearSceneLayoutDraft();
+          const clearResult = clearSceneLayoutDraft();
           setEditorState((current) => ({
             ...current,
-            notice: '本地草稿已清除，刷新后会回到默认布局。',
+            notice: clearResult.ok
+              ? '本地草稿已清除，刷新后会回到默认布局。'
+              : clearResult.message,
           }));
         }}
+        onSaveToProject={handleSaveToProject}
         onExport={() => {
           const exportResult = downloadSceneLayoutDocument(document);
           setEditorState((current) => ({

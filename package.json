@@ -8,13 +8,13 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "dev": "pnpm --parallel --filter \"./apps/*\" run dev",
-    "build": "pnpm -r run build",
-    "typecheck": "pnpm -r run typecheck",
+    "dev": "corepack pnpm --parallel --filter \"./apps/*\" run dev",
+    "build": "corepack pnpm -r run build",
+    "typecheck": "corepack pnpm -r run typecheck",
     "lint": "eslint .",
     "test": "vitest run",
     "architecture:check": "depcruise --config .dependency-cruiser.cjs apps packages",
-    "check": "pnpm architecture:check && pnpm typecheck && pnpm lint && pnpm test && pnpm build"
+    "check": "corepack pnpm architecture:check && corepack pnpm typecheck && corepack pnpm lint && corepack pnpm test && corepack pnpm build"
   },
   "devDependencies": {
     "@eslint/js": "^9.29.0",

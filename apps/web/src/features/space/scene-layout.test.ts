@@ -94,6 +94,22 @@ describe('sceneLayout', () => {
     expect(result.errors).toContain('items.radio.width 不能小于 20');
   });
 
+  it('文档校验会拒绝非安全整数 zIndex', () => {
+    const result = validateSceneLayoutDocument({
+      ...sceneLayoutJson,
+      items: {
+        ...sceneLayoutJson.items,
+        radio: {
+          ...sceneLayoutJson.items.radio,
+          zIndex: Number.MAX_SAFE_INTEGER + 1,
+        },
+      },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain('items.radio.zIndex 必须是安全整数');
+  });
+
   it('非法 JSON 草稿不会导致解析崩溃', () => {
     const result = parseSceneLayoutDraft('{oops');
     expect(result.ok).toBe(false);
