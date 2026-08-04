@@ -25,8 +25,8 @@ const MAX_NOTE_LENGTH = 1000;
 const MAX_LOCAL_DATE_LENGTH = 16;
 const MAX_TIME_ZONE_LENGTH = 128;
 
-/** 毫秒时间戳：整数且有限（安全整数由 JSON 解析天然保证）。 */
-const timestampSchema = z.number().int().finite();
+/** 毫秒时间戳：必须是有限安全整数，避免传输层静默丢精度。 */
+const timestampSchema = z.number().int().finite().safe();
 
 const timeWindowSchema = z.strictObject({
   startAtMs: timestampSchema,
@@ -169,6 +169,7 @@ export const DailyScheduleSchema = z.strictObject({
   remainingEnergyPoints: z.number().int(),
   mustTaskDeferredIds: z.array(z.string()),
 });
+export type DailySchedule = z.infer<typeof DailyScheduleSchema>;
 
 /** 错误条目：400 的 code 为 Zod 问题码，422 的 code 为领域错误码。 */
 const planPreviewErrorSchema = z.strictObject({

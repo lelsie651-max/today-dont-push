@@ -81,7 +81,108 @@ describe('POST /v1/plans/preview', () => {
     expect(response.statusCode).toBe(400);
     const body: unknown = response.json();
     const parsed = PlanPreviewInvalidRequestResponseSchema.parse(body);
-    expect(JSON.stringify(parsed.errors)).toContain('surprise');
+    expect(parsed.errors).toContainEqual({
+      code: 'unrecognized_keys',
+      path: 'surprise',
+      message: 'Unrecognized key: "surprise"',
+    });
+  });
+
+  it('嵌套未知字段返回 400，path 精确到 tasks[0].surprise', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/plans/preview',
+      payload: validPayload({
+        tasks: [
+          {
+            id: 'task-1',
+            title: '写周报',
+            priority: 'must',
+            estimatedMinutes: 60,
+            energyDemand: 2,
+            emotionalResistance: 0,
+            surprise: true,
+          },
+        ],
+      }),
+    });
+    expect(response.statusCode).toBe(400);
+    const body: unknown = response.json();
+    const parsed = PlanPreviewInvalidRequestResponseSchema.parse(body);
+    expect(parsed.errors).toContainEqual({
+      code: 'unrecognized_keys',
+      path: 'tasks[0].surprise',
+      message: 'Unrecognized key: "surprise"',
+    });
+  });
+
+  it('多个未知字段分别产生独立错误', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/plans/preview',
+      payload: validPayload({ surprise: true, unexpected: true }),
+    });
+    expect(response.statusCode).toBe(400);
+    const body: unknown = response.json();
+    const parsed = PlanPreviewInvalidRequestResponseSchema.parse(body);
+    const unknownErrors = parsed.errors.filter((error) => error.code === 'unrecognized_keys');
+    expect(unknownErrors.map((error) => error.path)).toEqual(['surprise', 'unexpected']);
+  });
+
+  it('损坏 JSON 返回 400，且响应通过 invalid_request 契约', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/plans/preview',
+      headers: { 'content-type': 'application/json' },
+      payload: '{"id":"plan-1"',
+    });
+    expect(response.statusCode).toBe(400);
+    const body: unknown = response.json();
+    const parsed = PlanPreviewInvalidRequestResponseSchema.parse(body);
+    expect(parsed.errors).toContainEqual({
+      code: 'invalid_json',
+      path: 'body',
+      message: expect.any(String),
+    });
+    expect(PlanPreviewResponseSchema.parse(body)).toEqual(parsed);
+  });
+
+  it('非安全整数 startAtMs 返回 400，path 精确到 planningWindows[0].startAtMs', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/plans/preview',
+      payload: validPayload({
+        planningWindows: [{ startAtMs: Number.MAX_SAFE_INTEGER + 1, endAtMs: T0 + 4 * HOUR }],
+      }),
+    });
+    expect(response.statusCode).toBe(400);
+    const body: unknown = response.json();
+    const parsed = PlanPreviewInvalidRequestResponseSchema.parse(body);
+    expect(parsed.errors.some((error) => error.path === 'planningWindows[0].startAtMs')).toBe(true);
+  });
+
+  it('非安全整数 deadlineAtMs 返回 400，path 精确到 tasks[0].deadlineAtMs', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/plans/preview',
+      payload: validPayload({
+        tasks: [
+          {
+            id: 'task-1',
+            title: '写周报',
+            priority: 'must',
+            estimatedMinutes: 60,
+            energyDemand: 2,
+            emotionalResistance: 0,
+            deadlineAtMs: Number.MAX_SAFE_INTEGER + 1,
+          },
+        ],
+      }),
+    });
+    expect(response.statusCode).toBe(400);
+    const body: unknown = response.json();
+    const parsed = PlanPreviewInvalidRequestResponseSchema.parse(body);
+    expect(parsed.errors.some((error) => error.path === 'tasks[0].deadlineAtMs')).toBe(true);
   });
 
   it('energyLevel=65 进入 domain 判定并返回 422', async () => {

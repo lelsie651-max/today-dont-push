@@ -25,6 +25,7 @@ export {
   PlanPreviewSuccessResponseSchema,
 } from './plan-preview.js';
 export type {
+  DailySchedule,
   PlanPreviewInvalidInputResponse,
   PlanPreviewInvalidRequestResponse,
   PlanPreviewRequest,

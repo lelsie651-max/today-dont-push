@@ -129,6 +129,50 @@ describe('PlanPreviewRequestSchema 结构与安全上限', () => {
     });
     expect(() => PlanPreviewRequestSchema.parse(request)).toThrow();
   });
+
+  it('拒绝非安全整数的 planningWindows[0].startAtMs', () => {
+    const parsed = PlanPreviewRequestSchema.safeParse(
+      validRequest({
+        planningWindows: [
+          { startAtMs: Number.MAX_SAFE_INTEGER + 1, endAtMs: T0 + 4 * HOUR },
+        ],
+      }),
+    );
+    expect(parsed.success).toBe(false);
+    if (parsed.success) {
+      return;
+    }
+
+    expect(parsed.error.issues.some((issue) => issue.path.join('.') === 'planningWindows.0.startAtMs')).toBe(
+      true,
+    );
+  });
+
+  it('拒绝非安全整数的 tasks[0].deadlineAtMs', () => {
+    const parsed = PlanPreviewRequestSchema.safeParse(
+      validRequest({
+        tasks: [
+          {
+            id: 'task-1',
+            title: '写周报',
+            priority: 'must',
+            estimatedMinutes: 60,
+            energyDemand: 2,
+            emotionalResistance: 0,
+            deadlineAtMs: Number.MAX_SAFE_INTEGER + 1,
+          },
+        ],
+      }),
+    );
+    expect(parsed.success).toBe(false);
+    if (parsed.success) {
+      return;
+    }
+
+    expect(parsed.error.issues.some((issue) => issue.path.join('.') === 'tasks.0.deadlineAtMs')).toBe(
+      true,
+    );
+  });
 });
 
 // 完整调度输出夹具（手写：contracts 不得依赖 domain）。
