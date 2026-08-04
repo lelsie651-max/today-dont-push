@@ -1,37 +1,89 @@
+import { useState } from 'react';
 import type { AssetManifestEntry } from './asset-manifest';
 
 interface AssetSlotProps {
   readonly assetId: string;
-  readonly label: string;
   readonly manifest: AssetManifestEntry;
   readonly className?: string;
+  readonly passive?: boolean;
 }
 
 export function AssetSlot({
   assetId,
-  label,
   manifest,
   className = '',
+  passive = false,
 }: AssetSlotProps) {
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [hasError, setHasError] = useState(false);
   const aspectRatio = `${manifest.width} / ${manifest.height}`;
+  const showPlaceholder = hasError || !hasLoaded;
+  const isFutureAction = manifest.role === 'future-action';
+  const combinedClassName = [
+    'asset-slot',
+    className,
+    isFutureAction ? 'asset-slot--future-action' : 'asset-slot--decorative',
+    passive ? 'asset-slot--passive' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const content = (
+    <>
+      <img
+        className={`asset-slot-image ${hasLoaded && !hasError ? 'is-visible' : ''}`}
+        src={manifest.path}
+        alt=""
+        draggable={false}
+        onLoad={() => {
+          setHasLoaded(true);
+          setHasError(false);
+        }}
+        onError={() => {
+          setHasLoaded(false);
+          setHasError(true);
+        }}
+        style={{ objectFit: manifest.fit }}
+      />
+      {showPlaceholder ? (
+        <div
+          className="asset-slot-surface"
+          style={{ aspectRatio }}
+        >
+          <span className="asset-slot-name">{manifest.label}</span>
+          <span className="asset-slot-meta">
+            {manifest.width} x {manifest.height}
+          </span>
+        </div>
+      ) : null}
+    </>
+  );
+
+  if (isFutureAction) {
+    return (
+      <button
+        type="button"
+        className={combinedClassName}
+        data-asset-id={assetId}
+        aria-label={manifest.label}
+        aria-disabled="true"
+        disabled
+        title={`${manifest.label}（暂未开放，未来资源：${manifest.path}）`}
+      >
+        {content}
+      </button>
+    );
+  }
 
   return (
-    <button
-      type="button"
-      className={`asset-slot ${className}`.trim()}
+    <div
+      className={combinedClassName}
       data-asset-id={assetId}
-      aria-label={label}
-      title={`${label}（未来资源：${manifest.path}）`}
+      data-role={manifest.role}
+      aria-hidden="true"
+      title={`${manifest.label}（未来资源：${manifest.path}）`}
     >
-      <div
-        className="asset-slot-surface"
-        style={{ aspectRatio }}
-      >
-        <span className="asset-slot-name">{label}</span>
-        <span className="asset-slot-meta">
-          {manifest.width} x {manifest.height}
-        </span>
-      </div>
-    </button>
+      {content}
+    </div>
   );
 }

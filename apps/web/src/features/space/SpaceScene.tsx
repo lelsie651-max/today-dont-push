@@ -1,7 +1,22 @@
 import { AssetSlot } from './AssetSlot';
-import { assetManifest } from './asset-manifest';
+import {
+  assetManifest,
+  defaultVisualState,
+  getSkyAsset,
+  getWeatherAsset,
+  type SpaceVisualState,
+} from './asset-manifest';
 
-export function SpaceScene() {
+interface SpaceSceneProps {
+  readonly visualState?: Partial<SpaceVisualState>;
+}
+
+export function SpaceScene({ visualState }: SpaceSceneProps) {
+  const resolvedVisualState: SpaceVisualState = {
+    ...defaultVisualState,
+    ...visualState,
+  };
+
   return (
     <section className="space-scene" aria-label="窗边桌面空间">
       <div className="space-scene-frame">
@@ -13,66 +28,80 @@ export function SpaceScene() {
         </div>
 
         <div className="space-scene-stage">
-          <AssetSlot
-            assetId="room-background"
-            label="room background"
-            manifest={assetManifest.roomBackground}
-            className="slot-room-background"
-          />
-          <AssetSlot
-            assetId="window-city-scene"
-            label="window city scene"
-            manifest={assetManifest.windowCityScene}
-            className="slot-window-city-scene"
-          />
-          <AssetSlot
-            assetId="plan-board"
-            label="plan board"
-            manifest={assetManifest.planBoard}
-            className="slot-plan-board"
-          />
-          <AssetSlot
-            assetId="desk-lamp"
-            label="desk lamp"
-            manifest={assetManifest.deskLamp}
-            className="slot-desk-lamp"
-          />
-          <AssetSlot
-            assetId="radio"
-            label="radio"
-            manifest={assetManifest.radio}
-            className="slot-radio"
-          />
-          <AssetSlot
-            assetId="focus-clock"
-            label="focus clock"
-            manifest={assetManifest.focusClock}
-            className="slot-focus-clock"
-          />
-          <AssetSlot
-            assetId="tarot-entry"
-            label="tarot entry"
-            manifest={assetManifest.tarotEntry}
-            className="slot-tarot-entry"
-          />
-          <AssetSlot
-            assetId="magazine"
-            label="magazine"
-            manifest={assetManifest.magazine}
-            className="slot-magazine"
-          />
-          <AssetSlot
-            assetId="review-printer"
-            label="review printer"
-            manifest={assetManifest.reviewPrinter}
-            className="slot-review-printer"
-          />
-          <AssetSlot
-            assetId="plant"
-            label="plant"
-            manifest={assetManifest.plant}
-            className="slot-plant"
-          />
+          <div className="space-layer space-layer-sky" data-testid="space-layer-sky">
+            <AssetSlot
+              assetId="sky"
+              manifest={getSkyAsset(resolvedVisualState.timeOfDay)}
+              className="slot-sky"
+              passive
+            />
+          </div>
+          <div className="space-layer space-layer-city" data-testid="space-layer-city">
+            <AssetSlot
+              assetId="window-city-skyline"
+              manifest={assetManifest.windowCitySkyline}
+              className="slot-window-city-skyline"
+              passive
+            />
+          </div>
+          <div className="space-layer space-layer-weather" data-testid="space-layer-weather">
+            <AssetSlot
+              assetId="weather-overlay"
+              manifest={getWeatherAsset(resolvedVisualState.weather)}
+              className="slot-weather-overlay"
+              passive
+            />
+          </div>
+          <div className="space-layer space-layer-room" data-testid="space-layer-room">
+            <AssetSlot
+              assetId="room-foreground"
+              manifest={assetManifest.roomForeground}
+              className="slot-room-foreground"
+              passive
+            />
+          </div>
+          <div className="space-layer space-layer-props" data-testid="space-layer-props">
+            <AssetSlot
+              assetId="plan-board"
+              manifest={assetManifest.planBoard}
+              className="slot-plan-board"
+            />
+            <AssetSlot
+              assetId="desk-lamp"
+              manifest={assetManifest.deskLamp}
+              className="slot-desk-lamp"
+            />
+            <AssetSlot
+              assetId="radio"
+              manifest={assetManifest.radio}
+              className="slot-radio"
+            />
+            <AssetSlot
+              assetId="focus-clock"
+              manifest={assetManifest.focusClock}
+              className="slot-focus-clock"
+            />
+            <AssetSlot
+              assetId="tarot-entry"
+              manifest={assetManifest.tarotEntry}
+              className="slot-tarot-entry"
+            />
+            <AssetSlot
+              assetId="magazine"
+              manifest={assetManifest.magazine}
+              className="slot-magazine"
+            />
+            <AssetSlot
+              assetId="review-printer"
+              manifest={assetManifest.reviewPrinter}
+              className="slot-review-printer"
+            />
+            <AssetSlot
+              assetId="plant"
+              manifest={assetManifest.plant}
+              className="slot-plant"
+            />
+          </div>
         </div>
       </div>
     </section>

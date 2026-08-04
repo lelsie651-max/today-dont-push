@@ -68,8 +68,25 @@
 
 .space-scene-stage {
   position: relative;
-  min-height: min(75vw, 900px);
+  width: 100%;
   aspect-ratio: 1440 / 900;
+  background:
+    linear-gradient(180deg, rgba(248, 237, 219, 0.76), rgba(241, 225, 205, 0.88));
+}
+
+.space-layer {
+  position: absolute;
+  inset: 0;
+}
+
+.space-layer-sky,
+.space-layer-city,
+.space-layer-weather {
+  inset: 15.5% 31% 25.5% 30.7%;
+}
+
+.space-layer-props {
+  z-index: 5;
 }
 
 .asset-slot {
@@ -79,19 +96,41 @@
   border: 0;
   background: transparent;
   text-align: left;
-  transition: transform 180ms ease, filter 180ms ease;
 }
 
-.asset-slot:hover,
-.asset-slot:focus-visible {
+.asset-slot--passive {
+  pointer-events: none;
+}
+
+.asset-slot--future-action {
+  cursor: not-allowed;
+  transition: transform 180ms ease, filter 180ms ease, box-shadow 180ms ease;
+}
+
+.asset-slot--future-action:hover,
+.asset-slot--future-action:focus-visible {
   transform: translateY(-4px) scale(1.01);
   filter: saturate(1.05);
   outline: none;
 }
 
+.asset-slot-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  opacity: 0;
+  transition: opacity 180ms ease;
+  user-select: none;
+}
+
+.asset-slot-image.is-visible {
+  opacity: 1;
+}
+
 .asset-slot-surface {
   width: 100%;
   height: 100%;
+  position: relative;
   border-radius: 24px;
   border: 1px dashed rgba(137, 109, 76, 0.38);
   background:
@@ -123,88 +162,100 @@
   color: #8a7358;
 }
 
-.slot-room-background {
+.slot-sky,
+.slot-window-city-skyline,
+.slot-weather-overlay {
   inset: 0;
   z-index: 0;
 }
 
-.slot-room-background .asset-slot-surface {
+.slot-room-foreground {
+  inset: 0;
+  z-index: 4;
+}
+
+.slot-room-foreground .asset-slot-surface {
   border-style: solid;
   border-width: 0;
   border-radius: 0;
-  background:
-    radial-gradient(circle at 50% 15%, rgba(255, 240, 214, 0.88), transparent 24%),
-    linear-gradient(180deg, #f5eadb 0%, #f0e4d5 34%, #eadaca 100%);
+  background: linear-gradient(180deg, rgba(245, 234, 219, 0.65), rgba(237, 223, 204, 0.82));
   box-shadow: none;
 }
 
-.slot-window-city-scene {
-  left: 30.5%;
-  top: 16%;
-  width: 38.5%;
-  z-index: 2;
+.slot-sky .asset-slot-surface,
+.slot-window-city-skyline .asset-slot-surface,
+.slot-weather-overlay .asset-slot-surface {
+  border-radius: 0;
 }
 
-.slot-window-city-scene .asset-slot-surface {
+.slot-sky .asset-slot-surface {
+  background: linear-gradient(180deg, rgba(201, 222, 240, 0.96), rgba(170, 195, 220, 0.96));
+}
+
+.slot-window-city-skyline .asset-slot-surface {
   background:
-    linear-gradient(180deg, rgba(208, 226, 241, 0.94), rgba(174, 197, 218, 0.96)),
-    linear-gradient(180deg, rgba(255, 248, 238, 0.6), rgba(233, 225, 214, 0.3));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(56, 72, 88, 0.25)),
+    linear-gradient(180deg, rgba(206, 214, 222, 0), rgba(118, 131, 144, 0.36));
+}
+
+.slot-weather-overlay .asset-slot-surface {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(122, 145, 168, 0.18));
 }
 
 .slot-plan-board {
-  left: 6%;
-  top: 14%;
+  left: 6.2%;
+  top: 12%;
   width: 22%;
-  z-index: 3;
+  z-index: 6;
 }
 
 .slot-desk-lamp {
-  left: 53%;
-  bottom: 11%;
-  width: 14.5%;
-  z-index: 5;
+  left: 51%;
+  bottom: 9%;
+  width: 15.2%;
+  z-index: 7;
 }
 
 .slot-radio {
-  left: 16%;
-  bottom: 12%;
+  left: 16.5%;
+  bottom: 10%;
   width: 18%;
-  z-index: 5;
+  z-index: 7;
 }
 
 .slot-focus-clock {
-  left: 38%;
-  bottom: 15%;
-  width: 11%;
-  z-index: 5;
+  left: 38.2%;
+  bottom: 12.4%;
+  width: 13.5%;
+  z-index: 7;
 }
 
 .slot-tarot-entry {
-  right: 10%;
-  top: 23%;
-  width: 15%;
-  z-index: 4;
+  right: 10.4%;
+  top: 24.5%;
+  width: 10%;
+  z-index: 7;
 }
 
 .slot-magazine {
-  left: 32%;
-  bottom: 8%;
-  width: 14%;
-  z-index: 4;
+  left: 30.6%;
+  bottom: 6.8%;
+  width: 17%;
+  z-index: 6;
 }
 
 .slot-review-printer {
-  right: 7%;
-  bottom: 11%;
-  width: 17%;
-  z-index: 4;
+  right: 6.5%;
+  bottom: 10%;
+  width: 15.2%;
+  z-index: 7;
 }
 
 .slot-plant {
-  right: 21%;
-  bottom: 10%;
-  width: 12%;
-  z-index: 4;
+  right: 22%;
+  bottom: 9.5%;
+  width: 13%;
+  z-index: 7;
 }
 
 @media (max-width: 1080px) {
@@ -243,5 +294,11 @@
 
   .asset-slot-meta {
     font-size: 0.75rem;
+  }
+
+  .space-layer-sky,
+  .space-layer-city,
+  .space-layer-weather {
+    inset: 15.5% 30.6% 25.5% 30.3%;
   }
 }

@@ -488,15 +488,15 @@ describe('App', () => {
 
     expect(screen.getByRole('link', { name: '每日计划页面' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '空间页面' })).toHaveClass('is-active');
-    expect(screen.getByRole('button', { name: 'room background' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'window city scene' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'plan board' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'desk lamp' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'radio' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'focus clock' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'tarot entry' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'magazine' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'review printer' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'plant' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'room foreground' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'window city skyline' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'desk lamp' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'plant' })).not.toBeInTheDocument();
   });
 });

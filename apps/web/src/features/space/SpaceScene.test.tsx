@@ -9,24 +9,47 @@ describe('SpaceScene', () => {
     expect(screen.getByRole('region', { name: '窗边桌面空间' })).toBeInTheDocument();
   });
 
-  it('所有资产槽位都存在', () => {
+  it('默认使用 daytime 和 clear 资源', () => {
     render(<SpaceScene />);
 
-    expect(screen.getByRole('button', { name: 'room background' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'window city scene' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'plan board' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'desk lamp' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'radio' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'focus clock' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'tarot entry' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'magazine' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'review printer' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'plant' })).toBeInTheDocument();
+    const skyImage = document.querySelector('[data-asset-id="sky"] img');
+    const weatherImage = document.querySelector('[data-asset-id="weather-overlay"] img');
+    expect(skyImage).toHaveAttribute('src', '/assets/scene/window/sky-daytime.webp');
+    expect(weatherImage).toHaveAttribute('src', '/assets/scene/window/weather-clear.png');
   });
 
-  it('asset manifest 配置可读取', () => {
-    expect(assetManifest.roomBackground.path).toBe('/assets/scene/scene-room-background.png');
+  it('传入 morning 和 rain 时选择正确资源路径', () => {
+    render(<SpaceScene visualState={{ timeOfDay: 'morning', weather: 'rain' }} />);
+
+    const skyImage = document.querySelector('[data-asset-id="sky"] img');
+    const weatherImage = document.querySelector('[data-asset-id="weather-overlay"] img');
+    expect(skyImage).toHaveAttribute('src', '/assets/scene/window/sky-morning.webp');
+    expect(weatherImage).toHaveAttribute('src', '/assets/scene/window/weather-rain.png');
+  });
+
+  it('room、天空、城市、天气和 props 层全部存在', () => {
+    render(<SpaceScene />);
+
+    expect(screen.getByTestId('space-layer-sky')).toBeInTheDocument();
+    expect(screen.getByTestId('space-layer-city')).toBeInTheDocument();
+    expect(screen.getByTestId('space-layer-weather')).toBeInTheDocument();
+    expect(screen.getByTestId('space-layer-room')).toBeInTheDocument();
+    expect(screen.getByTestId('space-layer-props')).toBeInTheDocument();
+  });
+
+  it('manifest 的关键文件名和尺寸符合标准', () => {
+    expect(assetManifest.roomForeground.path).toBe('/assets/scene/scene-room-foreground.png');
+    expect(assetManifest.roomForeground.width).toBe(1920);
+    expect(assetManifest.windowCitySkyline.path).toBe('/assets/scene/window/window-city-skyline.png');
+    expect(assetManifest.sky.night.path).toBe('/assets/scene/window/sky-night.webp');
+    expect(assetManifest.weather.storm.path).toBe('/assets/scene/window/weather-storm.png');
+    expect(assetManifest.planBoard.width).toBe(720);
+    expect(assetManifest.planBoard.height).toBe(560);
+    expect(assetManifest.tarotEntry.path).toBe('/assets/tarot/icon-tarot-entry.png');
+    expect(assetManifest.magazine.path).toBe('/assets/props/prop-magazine-closed.png');
     expect(assetManifest.radio.width).toBe(520);
-    expect(assetManifest.reviewPrinter.height).toBe(380);
+    expect(assetManifest.focusClock.height).toBe(300);
+    expect(assetManifest.reviewPrinter.height).toBe(520);
+    expect(assetManifest.plant.path).toBe('/assets/props/prop-desk-plant.png');
   });
 });
