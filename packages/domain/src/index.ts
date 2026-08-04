@@ -61,3 +61,23 @@ export {
   MAX_TIME_ZONE_LENGTH,
   createDailyPlanningInput,
 } from './planning.js';
+
+// 容量分析（调度引擎第一阶段：只分析容量，不选择/安排任务）
+export type {
+  CapacityAnalysis,
+  CapacityReason,
+  CapacityReasonCode,
+  CapacityState,
+  EnergyPolicy,
+  EnergyPolicyVersion,
+  TaskCostVariant,
+  TaskEnergyCost,
+} from './capacity/index.js';
+export {
+  ENERGY_POLICY_V1,
+  analyzeDailyCapacity,
+  commitmentEnergyCostPoints,
+  deriveFreeSlots,
+  durationInWholeMinutes,
+  estimateTaskEnergyCost,
+} from './capacity/index.js';
