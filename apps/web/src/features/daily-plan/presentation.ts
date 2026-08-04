@@ -1,7 +1,7 @@
 import type {
+  DailySchedule,
   PlanPreviewInvalidInputResponse,
   PlanPreviewInvalidRequestResponse,
-  PlanPreviewSuccessResponse,
 } from '@today-dont-push/contracts';
 import type { FormIssue } from './model';
 import { formatLocalTimeRange, formatMinutes } from './time';
@@ -23,9 +23,15 @@ export interface GroupedIssues {
   readonly taskByIndex: Readonly<Record<number, readonly string[]>>;
 }
 
-type Capacity = PlanPreviewSuccessResponse['data']['capacity'];
-type ScheduledItem = PlanPreviewSuccessResponse['data']['scheduledItems'][number];
-type DeferredItem = PlanPreviewSuccessResponse['data']['deferredItems'][number];
+type Capacity = DailySchedule['capacity'];
+type ScheduledItem = DailySchedule['scheduledItems'][number];
+type DeferredItem = DailySchedule['deferredItems'][number];
+
+export interface ResultGroups {
+  readonly mustItems: readonly ScheduledItem[];
+  readonly minimumItems: readonly ScheduledItem[];
+  readonly extraItems: readonly ScheduledItem[];
+}
 
 function pushIndexedIssue(
   bucket: Record<number, string[]>,
@@ -137,7 +143,7 @@ export function describeCapacityState(state: Capacity['capacityState']): string 
     case 'commitment_heavy':
       return '固定安排偏多，适合收束重点，别把自己排太满。';
     case 'exhausted_by_commitments':
-      return '固定安排已经把今天挤满了，能守住底线就很好。';
+      return '今天已经没有剩余的可安排容量了，能守住底线就很好。';
   }
 }
 
@@ -159,13 +165,41 @@ export function describeDeferredReason(item: DeferredItem): string {
   }
 }
 
-export function summarizeCapacity(capacity: Capacity): string[] {
+export function summarizeCapacity(schedule: DailySchedule): string[] {
+  const scheduledMinutes = schedule.capacity.schedulableMinutes - schedule.remainingSchedulableMinutes;
   return [
-    `今天一共还能安排 ${formatMinutes(capacity.schedulableMinutes)}。`,
-    `系统已经帮你留出 ${formatMinutes(capacity.protectedBufferMinutes)} 的空白。`,
-    `做完固定安排后，还剩 ${capacity.remainingEnergyPoints} 点精力可以支配。`,
-    describeCapacityState(capacity.capacityState),
+    `原始可用于弹性任务的时间：${formatMinutes(schedule.capacity.schedulableMinutes)}。`,
+    `这次已经安排了 ${formatMinutes(scheduledMinutes)}。`,
+    `系统主动保护了 ${formatMinutes(schedule.capacity.protectedBufferMinutes)} 的空白。`,
+    `计划排完后，还剩 ${formatMinutes(schedule.remainingSchedulableMinutes)} 可安排时间。`,
+    `固定安排后可用能量：${schedule.capacity.remainingEnergyPoints} 点。`,
+    `计划排完后剩余能量：${schedule.remainingEnergyPoints} 点。`,
+    describeCapacityState(schedule.capacity.capacityState),
   ];
+}
+
+export function groupScheduledItems(schedule: DailySchedule): ResultGroups {
+  const mustItems: ScheduledItem[] = [];
+  const minimumItems: ScheduledItem[] = [];
+  const extraItems: ScheduledItem[] = [];
+
+  schedule.scheduledItems.forEach((item) => {
+    if (item.priority === 'must') {
+      mustItems.push(item);
+      return;
+    }
+    if (item.variant === 'minimum') {
+      minimumItems.push(item);
+      return;
+    }
+    extraItems.push(item);
+  });
+
+  return {
+    mustItems,
+    minimumItems,
+    extraItems,
+  };
 }
 
 export function describeScheduledItem(item: ScheduledItem): string {

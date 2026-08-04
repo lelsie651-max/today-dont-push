@@ -111,6 +111,57 @@ const successResponse: PlanPreviewSuccessResponse = {
   },
 };
 
+const mustMinimumResponse: PlanPreviewSuccessResponse = {
+  status: 'ok',
+  data: {
+    ...successResponse.data,
+    capacity: {
+      ...successResponse.data.capacity,
+      schedulableMinutes: 300,
+      remainingEnergyPoints: 12,
+      capacityState: 'exhausted_by_commitments',
+    },
+    scheduledItems: [
+      {
+        taskId: 'id-2',
+        title: '先写开头',
+        priority: 'must',
+        variant: 'minimum',
+        window: { startAtMs: 1_801_000_000_000, endAtMs: 1_801_000_900_000 },
+        minutes: 15,
+        energyCostPoints: 1,
+        reasonCodes: ['MINIMUM_SELECTED_TO_PROTECT_MUST_COVERAGE'],
+        decisionRank: 0,
+      },
+      {
+        taskId: 'id-3',
+        title: '整理提纲',
+        priority: 'important',
+        variant: 'minimum',
+        window: { startAtMs: 1_801_001_000_000, endAtMs: 1_801_001_900_000 },
+        minutes: 15,
+        energyCostPoints: 1,
+        reasonCodes: ['MINIMUM_SELECTED_AS_FALLBACK'],
+        decisionRank: 1,
+      },
+      {
+        taskId: 'id-4',
+        title: '整理桌面',
+        priority: 'optional',
+        variant: 'full',
+        window: { startAtMs: 1_801_002_000_000, endAtMs: 1_801_003_800_000 },
+        minutes: 30,
+        energyCostPoints: 1,
+        reasonCodes: ['FULL_VERSION_SELECTED'],
+        decisionRank: 2,
+      },
+    ],
+    deferredItems: [],
+    remainingSchedulableMinutes: 240,
+    remainingEnergyPoints: 9,
+  },
+};
+
 async function fillRequiredTask(user: ReturnType<typeof userEvent.setup>, title = '把周报写完') {
   await user.clear(screen.getByLabelText('任务名称'));
   await user.type(screen.getByLabelText('任务名称'), title);
@@ -281,6 +332,79 @@ describe('App', () => {
     expect(screen.getByText('原任务已调整为：先写开头')).toBeInTheDocument();
     expect(screen.getAllByText('整理桌面').length).toBeGreaterThan(0);
     expect(screen.getByText('今天剩余的整块时间不够。')).toBeInTheDocument();
+  });
+
+  it('must 加 minimum 卡片同时显示原任务名和最低版名，且只出现一次', async () => {
+    const user = userEvent.setup();
+    renderApp({
+      client: vi.fn(async () => ({ kind: 'success' as const, response: mustMinimumResponse })),
+      createId: createIdFactory(),
+    });
+
+    await fillRequiredTask(user, '把周报写完');
+    await user.click(screen.getByRole('button', { name: '添加一件事' }));
+    await user.type(screen.getAllByLabelText('任务名称')[1]!, '整理资料');
+    await user.click(screen.getByRole('button', { name: '添加一件事' }));
+    await user.type(screen.getAllByLabelText('任务名称')[2]!, '整理桌面');
+
+    await user.click(screen.getByRole('button', { name: '看看今天先怎么安排' }));
+
+    const mustSection = screen.getByRole('heading', { name: '今天必须守住' }).closest('section');
+    const minimumSection = screen.getByRole('heading', { name: '今天这样做就够了' }).closest('section');
+    if (mustSection === null || minimumSection === null) {
+      throw new Error('结果分区不存在');
+    }
+
+    expect(await within(mustSection).findByText('把周报写完')).toBeInTheDocument();
+    expect(within(mustSection).getByText('今天守住：先写开头')).toBeInTheDocument();
+    expect(within(mustSection).getByText('最低版')).toBeInTheDocument();
+    expect(within(minimumSection).queryByText('把周报写完')).not.toBeInTheDocument();
+  });
+
+  it('full 任务在结果区不重复显示相同标题', async () => {
+    const user = userEvent.setup();
+    renderApp({
+      client: vi.fn(async () => ({ kind: 'success' as const, response: mustMinimumResponse })),
+      createId: createIdFactory(),
+    });
+
+    await fillRequiredTask(user, '把周报写完');
+    await user.click(screen.getByRole('button', { name: '添加一件事' }));
+    await user.type(screen.getAllByLabelText('任务名称')[1]!, '整理资料');
+    await user.click(screen.getByRole('button', { name: '添加一件事' }));
+    await user.type(screen.getAllByLabelText('任务名称')[2]!, '整理桌面');
+    await user.click(screen.getByRole('button', { name: '看看今天先怎么安排' }));
+
+    const extraSection = screen.getByRole('heading', { name: '有余力再做' }).closest('section');
+    if (extraSection === null) {
+      throw new Error('有余力再做分区不存在');
+    }
+    expect(within(extraSection).getAllByText('整理桌面')).toHaveLength(1);
+  });
+
+  it('拆分后原有表单、错误和提交行为保持不变', async () => {
+    const user = userEvent.setup();
+    const client = vi.fn(async (request: PlanPreviewRequest) => {
+      expect(request.tasks[0]?.title).toBe('把周报写完');
+      return {
+        kind: 'invalid_input' as const,
+        response: {
+          status: 'invalid_input' as const,
+          errors: [{ code: 'INVALID_PRIORITY', path: 'tasks[0].priority', message: '这件事的重要程度不合法' }],
+        },
+      };
+    });
+    renderApp({ client });
+
+    await fillRequiredTask(user, '把周报写完');
+    await user.click(screen.getByRole('button', { name: '看看今天先怎么安排' }));
+
+    await waitFor(() => expect(client).toHaveBeenCalledTimes(1));
+    const taskCard = screen.getByRole('heading', { name: '任务 1' }).closest('article');
+    if (taskCard === null) {
+      throw new Error('任务卡片不存在');
+    }
+    expect(await within(taskCard).findByText('这件事的重要程度不合法')).toBeInTheDocument();
   });
 
   it('点击“今天先这样”会显示确认文案', async () => {

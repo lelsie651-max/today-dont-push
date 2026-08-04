@@ -350,6 +350,18 @@ button {
   color: #8a5e16;
 }
 
+.timeline-badge-inline {
+  display: inline-flex;
+  width: fit-content;
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #f7ead2;
+  color: #8a5e16;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
 .brand-action {
   justify-items: start;
 }
