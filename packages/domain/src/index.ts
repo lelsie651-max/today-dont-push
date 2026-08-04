@@ -81,3 +81,17 @@ export {
   durationInWholeMinutes,
   estimateTaskEnergyCost,
 } from './capacity/index.js';
+
+// 任务决策与时段放置（调度引擎第二阶段：确定性调度，不拆分任务）
+export type {
+  DailySchedule,
+  DeferredItem,
+  ScheduleDeferredReason,
+  ScheduleDeferredReasonCode,
+  SchedulePlacementReasonCode,
+  ScheduledItem,
+  TaskSchedulingPolicy,
+  TaskSchedulingPolicyVersion,
+  VariantPreferenceByPriority,
+} from './capacity/index.js';
+export { TASK_SCHEDULING_POLICY_V1, scheduleDailyPlan } from './capacity/index.js';
