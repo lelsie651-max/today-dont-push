@@ -1,9 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   getSceneItemLabel,
   getSceneItemManifestAspectRatio,
 } from '../asset-manifest';
-import type { SceneItemKey, SceneLayoutItem, SceneLayoutPatch } from '../scene-layout';
+import {
+  validateSceneInspectorValue,
+  type SceneItemKey,
+  type SceneLayoutItem,
+  type SceneLayoutPatch,
+  type SceneNumericField,
+} from '../scene-layout';
 
 interface SceneInspectorProps {
   readonly selectedItemKey: SceneItemKey | null;
@@ -19,29 +25,29 @@ interface SceneInspectorProps {
   ) => void;
 }
 
-type NumericField = 'x' | 'y' | 'width' | 'height' | 'zIndex';
-
-function isIntegerString(value: string) {
-  return /^-?\d+$/.test(value.trim());
-}
-
 export function SceneInspector({
   selectedItemKey,
   selectedItem,
   onPatchItem,
   onToggleFlag,
 }: SceneInspectorProps) {
-  const [draftValues, setDraftValues] = useState<Record<NumericField, string>>({
+  const [draftValues, setDraftValues] = useState<Record<SceneNumericField, string>>({
     x: '',
     y: '',
     width: '',
     height: '',
     zIndex: '',
   });
-  const [errors, setErrors] = useState<Partial<Record<NumericField, string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<SceneNumericField, string>>>({});
+  const selectedItemRef = useRef(selectedItem);
 
   useEffect(() => {
-    if (selectedItem === null) {
+    selectedItemRef.current = selectedItem;
+  }, [selectedItem]);
+
+  useEffect(() => {
+    const nextSelectedItem = selectedItemRef.current;
+    if (selectedItemKey === null || nextSelectedItem === null) {
       setDraftValues({
         x: '',
         y: '',
@@ -53,14 +59,28 @@ export function SceneInspector({
       return;
     }
     setDraftValues({
-      x: String(selectedItem.x),
-      y: String(selectedItem.y),
-      width: String(selectedItem.width),
-      height: String(selectedItem.height),
-      zIndex: String(selectedItem.zIndex),
+      x: String(nextSelectedItem.x),
+      y: String(nextSelectedItem.y),
+      width: String(nextSelectedItem.width),
+      height: String(nextSelectedItem.height),
+      zIndex: String(nextSelectedItem.zIndex),
     });
     setErrors({});
-  }, [selectedItem]);
+  }, [selectedItemKey]);
+
+  useEffect(() => {
+    if (selectedItem === null) {
+      return;
+    }
+
+    setDraftValues((previous) => ({
+      x: errors.x ? previous.x : String(selectedItem.x),
+      y: errors.y ? previous.y : String(selectedItem.y),
+      width: errors.width ? previous.width : String(selectedItem.width),
+      height: errors.height ? previous.height : String(selectedItem.height),
+      zIndex: errors.zIndex ? previous.zIndex : String(selectedItem.zIndex),
+    }));
+  }, [errors.height, errors.width, errors.x, errors.y, errors.zIndex, selectedItem]);
 
   const selectedLabel = useMemo(() => {
     if (selectedItemKey === null) {
@@ -82,7 +102,7 @@ export function SceneInspector({
   }
 
   const numericFields: ReadonlyArray<{
-    readonly key: NumericField;
+    readonly key: SceneNumericField;
     readonly label: string;
   }> = [
     { key: 'x', label: 'x' },
@@ -124,28 +144,24 @@ export function SceneInspector({
                     [key]: nextValue,
                   }));
 
-                  if (!isIntegerString(nextValue)) {
-                    setErrors((previous) => ({
-                      ...previous,
-                      [key]: '请输入整数',
-                    }));
-                    return;
-                  }
+                  const validation = validateSceneInspectorValue(selectedItem, key, nextValue, {
+                    aspectRatio: ratioHint ?? undefined,
+                  });
 
                   setErrors((previous) => ({
                     ...previous,
-                    [key]: undefined,
+                    [key]: validation.error ?? undefined,
                   }));
-                  onPatchItem(
-                    selectedItemKey,
-                    {
-                      [key]: Number.parseInt(nextValue, 10),
-                    },
-                    {
-                      preferredDimension:
-                        key === 'height' ? 'height' : 'width',
-                    },
-                  );
+
+                  if (!validation.ok) {
+                    return;
+                  }
+
+                  onPatchItem(selectedItemKey, {
+                    [key]: Number.parseInt(nextValue, 10),
+                  }, {
+                    preferredDimension: key === 'height' ? 'height' : 'width',
+                  });
                 }}
               />
               {errors[key] ? <small>{errors[key]}</small> : null}

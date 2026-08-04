@@ -1,21 +1,15 @@
 import { DailyPlanPage, type DailyPlanPageProps } from './features/daily-plan/DailyPlanPage';
+import { resolveAppViewState } from './app-view-state';
 import { SpaceWorkspace } from './features/space/SpaceWorkspace';
 
-export type AppProps = DailyPlanPageProps & {
-  readonly isDev?: boolean;
-};
+export type AppProps = DailyPlanPageProps;
 
 function App(props: AppProps) {
-  const { isDev = import.meta.env.DEV, ...dailyPlanProps } = props;
-  const searchParams =
+  const viewState =
     typeof window !== 'undefined'
-      ? new URLSearchParams(window.location.search)
-      : null;
-  const view = searchParams?.get('view') ?? null;
-  const debugAssets = searchParams?.get('debugAssets') === '1';
-  const sceneEditor = isDev && searchParams?.get('sceneEditor') === '1';
-
-  const isSpaceView = view === 'space';
+      ? resolveAppViewState(window.location.search)
+      : { isSpaceView: false, debugAssets: false };
+  const { isSpaceView, debugAssets } = viewState;
 
   return (
     <>
@@ -34,9 +28,9 @@ function App(props: AppProps) {
         </a>
       </nav>
       {isSpaceView ? (
-        <SpaceWorkspace debugAssets={debugAssets} sceneEditor={sceneEditor} />
+        <SpaceWorkspace debugAssets={debugAssets} />
       ) : (
-        <DailyPlanPage {...dailyPlanProps} />
+        <DailyPlanPage {...props} />
       )}
     </>
   );

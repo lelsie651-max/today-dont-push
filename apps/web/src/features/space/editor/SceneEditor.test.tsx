@@ -77,6 +77,33 @@ describe('SceneEditor', () => {
     });
   });
 
+  it('Inspector 输入超界值时显示错误且不写入画布', async () => {
+    const user = userEvent.setup();
+    render(<SceneEditor />);
+
+    await user.click(screen.getByRole('button', { name: '在层级中选择 radio' }));
+    fireEvent.change(screen.getByLabelText('x'), { target: { value: '5000' } });
+
+    expect(screen.getByText('x 允许范围为 0-1181px')).toBeInTheDocument();
+    expect(getOverlay('radio')).toHaveStyle({
+      left: `${(238 / 1440) * 100}%`,
+    });
+    expect(screen.getByLabelText('x')).toHaveValue('5000');
+  });
+
+  it('整数格式错误会显示错误，不写入状态', async () => {
+    const user = userEvent.setup();
+    render(<SceneEditor />);
+
+    await user.click(screen.getByRole('button', { name: '在层级中选择 radio' }));
+    fireEvent.change(screen.getByLabelText('width'), { target: { value: '12.5' } });
+
+    expect(screen.getByText('请输入整数')).toBeInTheDocument();
+    expect(getOverlay('radio')).toHaveStyle({
+      width: `${(259 / 1440) * 100}%`,
+    });
+  });
+
   it('方向键 1px，Shift+方向键 10px', async () => {
     const user = userEvent.setup();
     render(<SceneEditor />);
@@ -154,6 +181,27 @@ describe('SceneEditor', () => {
 
     expect(screen.getByText(/本地草稿已忽略/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '在层级中选择 radio' })).toBeInTheDocument();
+  });
+
+  it('隐藏已选物件后重新显示，控制框会立即恢复', async () => {
+    const user = userEvent.setup();
+    render(<SceneEditor />);
+
+    await user.click(screen.getByRole('button', { name: '在层级中选择 radio' }));
+    expect(getOverlay('radio')).toHaveClass('is-selected');
+
+    const hierarchyItem = screen
+      .getByRole('button', { name: '在层级中选择 radio' })
+      .closest('.scene-editor-hierarchy-row');
+    if (!(hierarchyItem instanceof HTMLElement)) {
+      throw new Error('radio 层级项不存在');
+    }
+
+    await user.click(within(hierarchyItem).getByRole('button', { name: '显示' }));
+    expect(screen.queryByTestId('space-editor-target-radio')).not.toBeInTheDocument();
+
+    await user.click(within(hierarchyItem).getByRole('button', { name: '隐藏' }));
+    expect(screen.getByTestId('space-editor-target-radio')).toHaveClass('is-selected');
   });
 
   it('导出布局会触发下载', async () => {

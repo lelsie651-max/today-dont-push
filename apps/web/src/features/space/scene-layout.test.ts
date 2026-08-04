@@ -11,6 +11,7 @@ import {
   SCENE_DESIGN_WIDTH,
   serializeSceneLayoutDocument,
   updateSceneLayoutItem,
+  validateSceneInspectorValue,
   validateSceneLayoutDocument,
 } from './scene-layout';
 
@@ -126,5 +127,44 @@ describe('sceneLayout', () => {
       'utf8',
     );
     expect(css).not.toMatch(/\.slot-[\w-]+\s*\{[^}]*\b(left|right|top|bottom|width|height|z-index)\b/);
+  });
+
+  it('Inspector 会对超界 x 给出精确允许范围', () => {
+    const result = validateSceneInspectorValue(
+      defaultSceneLayoutDocument.items.radio,
+      'x',
+      '2000',
+      {
+        aspectRatio: 520 / 360,
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe('x 允许范围为 0-1181px');
+  });
+
+  it('Inspector 会拒绝无法在当前位置容纳的 keepRatio width', () => {
+    const result = validateSceneInspectorValue(
+      defaultSceneLayoutDocument.items.radio,
+      'width',
+      '1440',
+      {
+        aspectRatio: 520 / 360,
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain('当前位置保持比例时');
+  });
+
+  it('Inspector 会要求 zIndex 为安全整数', () => {
+    const result = validateSceneInspectorValue(
+      defaultSceneLayoutDocument.items.radio,
+      'zIndex',
+      `${Number.MAX_SAFE_INTEGER + 1}`,
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe('zIndex 必须是安全整数');
   });
 });

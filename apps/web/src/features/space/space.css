@@ -278,6 +278,14 @@
   line-height: 1.35;
 }
 
+.space-workspace-dev-notice {
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(177, 156, 129, 0.28);
+  background: rgba(255, 250, 244, 0.92);
+  color: #6a543b;
+}
+
 @media (max-width: 1080px) {
   .space-workspace {
     padding: 24px 18px 32px;

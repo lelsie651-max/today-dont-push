@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Moveable, { type OnDrag, type OnResize } from 'react-moveable';
 import { SpaceScene } from '../SpaceScene';
 import {
   defaultSceneLayoutDocument,
   type SceneItemKey,
-  type SceneLayoutDocument,
   type SceneLayoutPatch,
 } from '../scene-layout';
 import {
@@ -14,7 +13,6 @@ import {
   createSceneEditorState,
   finishSceneInteraction,
   getSceneEditorDocument,
-  getStageScale,
   nudgeSceneEditorItem,
   previewDragInScreenSpace,
   previewResizeInScreenSpace,
@@ -34,6 +32,7 @@ import {
 import { SceneHierarchy } from './SceneHierarchy';
 import { SceneInspector } from './SceneInspector';
 import { SceneToolbar } from './SceneToolbar';
+import { createStageMoveableMetrics, useStageMetrics } from './useStageMetrics';
 import './scene-editor.css';
 
 interface SceneEditorProps {
@@ -58,17 +57,29 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
     };
   });
   const [stageElement, setStageElement] = useState<HTMLDivElement | null>(null);
-  const targetElementsRef = useRef(new Map<SceneItemKey, HTMLButtonElement>());
+  const [targetElements, setTargetElements] = useState<Partial<Record<SceneItemKey, HTMLButtonElement | null>>>({});
+  const targetRefCallbacks = useRef<Partial<Record<SceneItemKey, (element: HTMLButtonElement | null) => void>>>({});
+  const stageMetrics = useStageMetrics(stageElement);
+  const stageMetricsRef = useRef(stageMetrics);
+  const selectedItemKeyRef = useRef<SceneItemKey | null>(editorState.selectedItemKey);
 
   const document = getSceneEditorDocument(editorState);
   const selectedItemKey = editorState.selectedItemKey;
   const selectedItem = selectedItemKey === null ? null : document.items[selectedItemKey];
-  const selectedTarget =
-    selectedItemKey === null ? null : targetElementsRef.current.get(selectedItemKey) ?? null;
-  const stageWidth = stageElement?.clientWidth ?? defaultSceneLayoutDocument.designSpace.width;
-  const stageHeight = stageElement?.clientHeight ?? defaultSceneLayoutDocument.designSpace.height;
-  const stageScale = getStageScale(stageWidth);
+  const selectedTarget = selectedItemKey === null ? null : targetElements[selectedItemKey] ?? null;
   const canTransform = Boolean(selectedItem && selectedItem.visible && !selectedItem.locked);
+  const moveableMetrics = useMemo(
+    () => createStageMoveableMetrics(stageMetrics, editorState.snapEnabled),
+    [editorState.snapEnabled, stageMetrics],
+  );
+
+  useEffect(() => {
+    stageMetricsRef.current = stageMetrics;
+  }, [stageMetrics]);
+
+  useEffect(() => {
+    selectedItemKeyRef.current = selectedItemKey;
+  }, [selectedItemKey]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -128,24 +139,29 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
     };
   }, [selectedItemKey, selectedItem?.locked]);
 
-  const moveableBounds = useMemo(
-    () => ({
-      left: 0,
-      top: 0,
-      right: stageWidth,
-      bottom: stageHeight,
-      position: 'css' as const,
-    }),
-    [stageHeight, stageWidth],
-  );
+  const registerEditorTarget = useCallback(
+    (key: SceneItemKey) => {
+      const existingCallback = targetRefCallbacks.current[key];
+      if (existingCallback !== undefined) {
+        return existingCallback;
+      }
 
-  const registerEditorTarget = (key: SceneItemKey) => (element: HTMLButtonElement | null) => {
-    if (element === null) {
-      targetElementsRef.current.delete(key);
-      return;
-    }
-    targetElementsRef.current.set(key, element);
-  };
+      const nextCallback = (element: HTMLButtonElement | null) => {
+        setTargetElements((current) => {
+          if ((current[key] ?? null) === element) {
+            return current;
+          }
+          return {
+            ...current,
+            [key]: element,
+          };
+        });
+      };
+      targetRefCallbacks.current[key] = nextCallback;
+      return nextCallback;
+    },
+    [],
+  );
 
   const handlePatchItem = (
     key: SceneItemKey,
@@ -169,7 +185,7 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
       notice: '已恢复默认布局。',
       editorState: commitSceneDocument(
         current.editorState,
-        defaultSceneLayoutDocument as SceneLayoutDocument,
+        defaultSceneLayoutDocument,
       ),
     }));
   };
@@ -275,21 +291,25 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
               resizable={canTransform}
               snappable={editorState.snapEnabled}
               keepRatio={selectedItem.keepRatio}
-              bounds={moveableBounds}
-              verticalGuidelines={[0, stageWidth / 2, stageWidth]}
-              horizontalGuidelines={[0, stageHeight / 2, stageHeight]}
-              snapGridWidth={editorState.snapEnabled ? 10 * stageScale : 0}
-              snapGridHeight={editorState.snapEnabled ? 10 * stageScale : 0}
+              bounds={moveableMetrics.bounds}
+              verticalGuidelines={moveableMetrics.verticalGuidelines}
+              horizontalGuidelines={moveableMetrics.horizontalGuidelines}
+              snapGridWidth={moveableMetrics.snapGridWidth}
+              snapGridHeight={moveableMetrics.snapGridHeight}
               throttleDrag={0}
               throttleResize={0}
               onDrag={({ left, top, width, height }: OnDrag) => {
+                const activeItemKey = selectedItemKeyRef.current;
+                if (activeItemKey === null) {
+                  return;
+                }
                 setEditorState((current) => ({
                   ...current,
                   editorState: previewDragInScreenSpace(
                     current.editorState,
-                    selectedItemKey!,
+                    activeItemKey,
                     { left, top, width, height },
-                    stageScale,
+                    stageMetricsRef.current.scale,
                   ),
                 }));
               }}
@@ -303,6 +323,10 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
                 }));
               }}
               onResize={(event: OnResize) => {
+                const activeItemKey = selectedItemKeyRef.current;
+                if (activeItemKey === null) {
+                  return;
+                }
                 const preferredDimension =
                   Math.abs(event.delta[0]) >= Math.abs(event.delta[1]) ? 'width' : 'height';
                 const left = event.drag.left;
@@ -311,14 +335,14 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
                   ...current,
                   editorState: previewResizeInScreenSpace(
                     current.editorState,
-                    selectedItemKey!,
+                    activeItemKey,
                     {
                       left,
                       top,
                       width: event.width,
                       height: event.height,
                     },
-                    stageScale,
+                    stageMetricsRef.current.scale,
                     preferredDimension,
                   ),
                 }));

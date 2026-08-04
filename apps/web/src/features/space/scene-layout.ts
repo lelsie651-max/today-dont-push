@@ -64,6 +64,13 @@ export interface SceneLayoutPatch {
   readonly keepRatio?: boolean;
 }
 
+export type SceneNumericField = 'x' | 'y' | 'width' | 'height' | 'zIndex';
+
+export interface SceneInspectorValidationResult {
+  readonly ok: boolean;
+  readonly error: string | null;
+}
+
 const DEFAULT_DOCUMENT_RESULT = validateSceneLayoutDocument(sceneLayoutJson);
 
 if (!DEFAULT_DOCUMENT_RESULT.ok || DEFAULT_DOCUMENT_RESULT.document === null) {
@@ -274,18 +281,139 @@ export function parseSceneLayoutDraft(input: string): SceneLayoutValidationResul
   }
 }
 
-export function clampSceneRect(rect: SceneLayoutRect): SceneLayoutRect {
-  const width = Math.max(SCENE_MIN_SIZE, Math.min(Math.round(rect.width), SCENE_DESIGN_WIDTH));
-  const height = Math.max(SCENE_MIN_SIZE, Math.min(Math.round(rect.height), SCENE_DESIGN_HEIGHT));
-  const x = Math.max(0, Math.min(Math.round(rect.x), SCENE_DESIGN_WIDTH - width));
-  const y = Math.max(0, Math.min(Math.round(rect.y), SCENE_DESIGN_HEIGHT - height));
+function isSafeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value);
+}
+
+function clampWithinRange(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function getMinimumKeepRatioSize(aspectRatio: number, preferredDimension: 'width' | 'height') {
+  if (!Number.isFinite(aspectRatio) || aspectRatio <= 0) {
+    return {
+      width: SCENE_MIN_SIZE,
+      height: SCENE_MIN_SIZE,
+    };
+  }
+
+  if (preferredDimension === 'width') {
+    const width = Math.max(SCENE_MIN_SIZE, Math.ceil(SCENE_MIN_SIZE * aspectRatio));
+    return {
+      width,
+      height: Math.max(SCENE_MIN_SIZE, Math.round(width / aspectRatio)),
+    };
+  }
+
+  const height = Math.max(SCENE_MIN_SIZE, Math.ceil(SCENE_MIN_SIZE / aspectRatio), SCENE_MIN_SIZE);
+  return {
+    width: Math.max(SCENE_MIN_SIZE, Math.round(height * aspectRatio)),
+    height,
+  };
+}
+
+function createKeepRatioRect(
+  rect: SceneLayoutRect,
+  aspectRatio: number,
+  preferredDimension: 'width' | 'height',
+): SceneLayoutRect {
+  if (!Number.isFinite(aspectRatio) || aspectRatio <= 0) {
+    return rect;
+  }
+
+  const minimumSize = getMinimumKeepRatioSize(aspectRatio, preferredDimension);
+
+  if (preferredDimension === 'width') {
+    const width = Math.max(Math.round(rect.width), minimumSize.width);
+    return {
+      ...rect,
+      width,
+      height: Math.max(minimumSize.height, Math.round(width / aspectRatio)),
+    };
+  }
+
+  const height = Math.max(Math.round(rect.height), minimumSize.height);
+  return {
+    ...rect,
+    width: Math.max(minimumSize.width, Math.round(height * aspectRatio)),
+    height,
+  };
+}
+
+function fitKeepRatioRectWithinStage(
+  rect: SceneLayoutRect,
+  aspectRatio: number,
+): SceneLayoutRect {
+  if (!Number.isFinite(aspectRatio) || aspectRatio <= 0) {
+    return rect;
+  }
+
+  let width = rect.width;
+  let height = rect.height;
+
+  if (width > SCENE_DESIGN_WIDTH || height > SCENE_DESIGN_HEIGHT) {
+    const widthScale = SCENE_DESIGN_WIDTH / width;
+    const heightScale = SCENE_DESIGN_HEIGHT / height;
+
+    if (widthScale <= heightScale) {
+      width = SCENE_DESIGN_WIDTH;
+      height = Math.max(SCENE_MIN_SIZE, Math.round(width / aspectRatio));
+      if (height > SCENE_DESIGN_HEIGHT) {
+        height = SCENE_DESIGN_HEIGHT;
+        width = Math.max(SCENE_MIN_SIZE, Math.round(height * aspectRatio));
+      }
+    } else {
+      height = SCENE_DESIGN_HEIGHT;
+      width = Math.max(SCENE_MIN_SIZE, Math.round(height * aspectRatio));
+      if (width > SCENE_DESIGN_WIDTH) {
+        width = SCENE_DESIGN_WIDTH;
+        height = Math.max(SCENE_MIN_SIZE, Math.round(width / aspectRatio));
+      }
+    }
+  }
 
   return {
-    x,
-    y,
+    ...rect,
     width,
     height,
+  };
+}
+
+export function clampSceneRect(
+  rect: SceneLayoutRect,
+  options: {
+    readonly aspectRatio?: number;
+    readonly keepRatio?: boolean;
+    readonly preferredDimension?: 'width' | 'height';
+  } = {},
+): SceneLayoutRect {
+  let nextRect: SceneLayoutRect = {
+    x: Math.round(rect.x),
+    y: Math.round(rect.y),
+    width: Math.round(rect.width),
+    height: Math.round(rect.height),
     zIndex: Math.round(rect.zIndex),
+  };
+
+  if (options.keepRatio && options.aspectRatio !== undefined) {
+    nextRect = createKeepRatioRect(
+      nextRect,
+      options.aspectRatio,
+      options.preferredDimension ?? 'width',
+    );
+    nextRect = fitKeepRatioRectWithinStage(nextRect, options.aspectRatio);
+  } else {
+    nextRect = {
+      ...nextRect,
+      width: clampWithinRange(nextRect.width, SCENE_MIN_SIZE, SCENE_DESIGN_WIDTH),
+      height: clampWithinRange(nextRect.height, SCENE_MIN_SIZE, SCENE_DESIGN_HEIGHT),
+    };
+  }
+
+  return {
+    ...nextRect,
+    x: clampWithinRange(nextRect.x, 0, SCENE_DESIGN_WIDTH - nextRect.width),
+    y: clampWithinRange(nextRect.y, 0, SCENE_DESIGN_HEIGHT - nextRect.height),
   };
 }
 
@@ -294,21 +422,150 @@ export function applyKeepRatio(
   aspectRatio: number,
   preferredDimension: 'width' | 'height',
 ): SceneLayoutRect {
-  if (!Number.isFinite(aspectRatio) || aspectRatio <= 0) {
-    return nextRect;
+  return createKeepRatioRect(nextRect, aspectRatio, preferredDimension);
+}
+
+function getSceneItemAspectRatioForValidation(
+  item: SceneLayoutItem,
+  aspectRatio?: number,
+) {
+  if (aspectRatio !== undefined && Number.isFinite(aspectRatio) && aspectRatio > 0) {
+    return aspectRatio;
+  }
+  return item.width / item.height;
+}
+
+function validateSceneInspectorSizeInput(
+  item: SceneLayoutItem,
+  field: 'width' | 'height',
+  value: number,
+  aspectRatio?: number,
+): SceneInspectorValidationResult {
+  const preferredDimension = field === 'height' ? 'height' : 'width';
+  const ratio = getSceneItemAspectRatioForValidation(item, aspectRatio);
+
+  if (item.keepRatio) {
+    const candidate = createKeepRatioRect(
+      {
+        x: item.x,
+        y: item.y,
+        width: field === 'width' ? value : item.width,
+        height: field === 'height' ? value : item.height,
+        zIndex: item.zIndex,
+      },
+      ratio,
+      preferredDimension,
+    );
+
+    const minimumSize = getMinimumKeepRatioSize(ratio, preferredDimension);
+    const actualValue = field === 'width' ? candidate.width : candidate.height;
+    const minimumValue = field === 'width' ? minimumSize.width : minimumSize.height;
+    if (actualValue !== value && value < minimumValue) {
+      return {
+        ok: false,
+        error: `${field} 不能小于 ${minimumValue}px（保持比例后）`,
+      };
+    }
+
+    const availableWidth = SCENE_DESIGN_WIDTH - item.x;
+    const availableHeight = SCENE_DESIGN_HEIGHT - item.y;
+    if (candidate.width > availableWidth || candidate.height > availableHeight) {
+      const maxByWidth = Math.max(
+        minimumSize.width,
+        Math.min(availableWidth, Math.floor(availableHeight * ratio)),
+      );
+      const maxByHeight = Math.max(
+        minimumSize.height,
+        Math.min(availableHeight, Math.floor(availableWidth / ratio)),
+      );
+      return {
+        ok: false,
+        error:
+          field === 'width'
+            ? `当前位置保持比例时，width 允许范围为 ${minimumSize.width}-${maxByWidth}px`
+            : `当前位置保持比例时，height 允许范围为 ${minimumSize.height}-${maxByHeight}px`,
+      };
+    }
+
+    return { ok: true, error: null };
   }
 
-  if (preferredDimension === 'width') {
+  const minimumValue = SCENE_MIN_SIZE;
+  const maximumValue =
+    field === 'width' ? SCENE_DESIGN_WIDTH - item.x : SCENE_DESIGN_HEIGHT - item.y;
+
+  if (value < minimumValue || value > maximumValue) {
     return {
-      ...nextRect,
-      height: Math.max(SCENE_MIN_SIZE, Math.round(nextRect.width / aspectRatio)),
+      ok: false,
+      error: `${field} 允许范围为 ${minimumValue}-${maximumValue}px`,
     };
   }
 
-  return {
-    ...nextRect,
-    width: Math.max(SCENE_MIN_SIZE, Math.round(nextRect.height * aspectRatio)),
-  };
+  return { ok: true, error: null };
+}
+
+export function validateSceneInspectorValue(
+  item: SceneLayoutItem,
+  field: SceneNumericField,
+  rawValue: string,
+  options: {
+    readonly aspectRatio?: number;
+  } = {},
+): SceneInspectorValidationResult {
+  if (!/^-?\d+$/.test(rawValue.trim())) {
+    return {
+      ok: false,
+      error: '请输入整数',
+    };
+  }
+
+  const value = Number.parseInt(rawValue, 10);
+
+  if (field === 'zIndex') {
+    if (!isSafeInteger(value)) {
+      return {
+        ok: false,
+        error: 'zIndex 必须是安全整数',
+      };
+    }
+    return { ok: true, error: null };
+  }
+
+  if ((field === 'x' || field === 'y') && !isSafeInteger(value)) {
+    return {
+      ok: false,
+      error: `${field} 必须是安全整数`,
+    };
+  }
+
+  if (field === 'x') {
+    const maxX = SCENE_DESIGN_WIDTH - item.width;
+    if (value < 0 || value > maxX) {
+      return {
+        ok: false,
+        error: `x 允许范围为 0-${maxX}px`,
+      };
+    }
+    return { ok: true, error: null };
+  }
+
+  if (field === 'y') {
+    const maxY = SCENE_DESIGN_HEIGHT - item.height;
+    if (value < 0 || value > maxY) {
+      return {
+        ok: false,
+        error: `y 允许范围为 0-${maxY}px`,
+      };
+    }
+    return { ok: true, error: null };
+  }
+
+  return validateSceneInspectorSizeInput(
+    item,
+    field,
+    value,
+    options.aspectRatio,
+  );
 }
 
 export function updateSceneLayoutItem(
@@ -325,9 +582,10 @@ export function updateSceneLayoutItem(
     ...currentItem,
     ...patch,
   };
+  const keepRatio = currentItem.keepRatio;
 
   if (
-    currentItem.keepRatio &&
+    keepRatio &&
     (patch.width !== undefined || patch.height !== undefined) &&
     options.aspectRatio !== undefined
   ) {
@@ -343,7 +601,11 @@ export function updateSceneLayoutItem(
 
   nextItem = {
     ...nextItem,
-    ...clampSceneRect(nextItem),
+    ...clampSceneRect(nextItem, {
+      keepRatio,
+      aspectRatio: options.aspectRatio,
+      preferredDimension: options.preferredDimension,
+    }),
   };
 
   const result = validateSceneLayoutDocument({
