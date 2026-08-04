@@ -11,4 +11,9 @@ describe('HealthResponseSchema', () => {
     expect(() => HealthResponseSchema.parse({ status: 'down', service: 'api' })).toThrow();
     expect(() => HealthResponseSchema.parse({})).toThrow();
   });
+
+  it('service 必须为字面量 api', () => {
+    expect(() => HealthResponseSchema.parse({ status: 'ok', service: 'web' })).toThrow();
+    expect(() => HealthResponseSchema.parse({ status: 'ok', service: '' })).toThrow();
+  });
 });

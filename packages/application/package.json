@@ -1,0 +1,29 @@
+{
+  "name": "@today-dont-push/application",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "应用层（本轮为空占位，仅允许依赖 domain）",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@today-dont-push/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "@today-dont-push/config": "workspace:*",
+    "typescript": "^5.9.3"
+  }
+}

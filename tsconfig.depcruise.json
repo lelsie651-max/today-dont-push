@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "noEmit": true,
+    "paths": {
+      "@today-dont-push/contracts": ["packages/contracts/src/index.ts"],
+      "@today-dont-push/domain": ["packages/domain/src/index.ts"],
+      "@today-dont-push/application": ["packages/application/src/index.ts"],
+      "@today-dont-push/database": ["packages/database/src/index.ts"],
+      "@today-dont-push/ai-core": ["packages/ai-core/src/index.ts"]
+    }
+  },
+  "files": ["packages/domain/src/index.ts"]
+}

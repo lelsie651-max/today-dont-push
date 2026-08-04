@@ -11,8 +11,13 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
+    "@today-dont-push/ai-core": "workspace:*",
+    "@today-dont-push/application": "workspace:*",
     "@today-dont-push/contracts": "workspace:*",
-    "fastify": "^5.5.0"
+    "@today-dont-push/database": "workspace:*",
+    "dotenv": "^16.4.5",
+    "fastify": "^5.5.0",
+    "zod": "^4.1.0"
   },
   "devDependencies": {
     "@today-dont-push/config": "workspace:*",

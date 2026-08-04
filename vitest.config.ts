@@ -7,6 +7,7 @@ const root = fileURLToPath(new URL('.', import.meta.url));
 const workspaceAliases = [
   'contracts',
   'domain',
+  'application',
   'database',
   'ai-core',
 ].map((name) => ({
