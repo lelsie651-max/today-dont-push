@@ -5,6 +5,28 @@
  * 内部包通过 tsconfig.depcruise.json 的 paths 解析到 TS 源码，
  * 保证未构建 dist 时也能检查。
  */
+/**
+ * 基础设施适配器规则：database 与 ai-core 各自一条。
+ * 两者均允许依赖自身/application/domain，但禁止互相依赖。
+ */
+const infraAdapterRules = ['database', 'ai-core'].map((fromName) => {
+  const otherName = fromName === 'database' ? 'ai-core' : 'database';
+  return {
+    name: `infra-no-${fromName}-to-${otherName}`,
+    comment: `${fromName} 不得依赖 ${otherName}（基础设施适配器之间禁止互相依赖）`,
+    severity: 'error',
+    from: { path: `^packages/${fromName}/` },
+    to: {
+      path: '^(apps|packages)/',
+      pathNot: [
+        `^packages/${fromName}/`,
+        '^packages/application/',
+        '^packages/domain/',
+      ],
+    },
+  };
+});
+
 module.exports = {
   forbidden: [
     {
@@ -52,22 +74,7 @@ module.exports = {
         pathNot: ['^packages/application/', '^packages/domain/'],
       },
     },
-    {
-      name: 'infra-adapters-direction',
-      comment:
-        'database/ai-core 属于基础设施适配器，内部依赖只允许 application/domain',
-      severity: 'error',
-      from: { path: '^packages/(database|ai-core)/' },
-      to: {
-        path: '^(apps|packages)/',
-        pathNot: [
-          '^packages/database/',
-          '^packages/ai-core/',
-          '^packages/application/',
-          '^packages/domain/',
-        ],
-      },
-    },
+    ...infraAdapterRules,
     {
       name: 'web-only-contracts',
       comment: 'web 只允许依赖 contracts，禁止依赖 database/domain/ai-core/application',

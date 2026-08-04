@@ -35,10 +35,11 @@ database / ai-core ──▶ （未来）application / domain
 2. `contracts`：**不得依赖任何内部包**（只允许 zod 等第三方库）。
 3. `domain`：**不得依赖任何内部包，也不得依赖任何框架或第三方库**。
 4. `application`：**只允许依赖 `domain`**。
-5. `database`、`ai-core`：属于基础设施适配器，**未来可依赖 `application`/`domain`**（本轮无内部依赖），两者之间不得互相依赖。
+5. `database`、`ai-core`：属于基础设施适配器，**未来可依赖 `application`/`domain`**（本轮无内部依赖），**两者之间禁止互相依赖**（由规则 `infra-no-database-to-ai-core` 与 `infra-no-ai-core-to-database` 分别强制）。
 6. `apps/web`：**只允许依赖 `contracts`**，禁止依赖 `database`、`domain`、`ai-core`、`application`（数据只能经由 API）。
 7. `apps/api`：负责组合 `contracts`、`application`、`database`、`ai-core`；**不得直接依赖 `domain`**（领域逻辑一律经由 `application`）。
 8. 新增包时必须在本文件登记职责与允许的依赖方向，并在 dependency-cruiser 配置中落地对应规则。
+9. 规则回归：`tests/architecture/fixtures/` 提供违规模拟文件，由 `tests/architecture/rules.regression.test.ts` 自动断言违规被拒绝、合法依赖通过，随 `pnpm test`/`pnpm check` 运行。
 
 ## AI 能力（占位说明）
 

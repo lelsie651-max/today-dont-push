@@ -7,7 +7,13 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['**/dist/**', '**/node_modules/**', '**/*.tsbuildinfo'],
+    ignores: [
+      '**/dist/**',
+      '**/node_modules/**',
+      '**/*.tsbuildinfo',
+      // 架构规则回归 fixture：刻意构造的违规模拟文件，不参与 lint
+      'tests/architecture/fixtures/**',
+    ],
   },
   {
     files: ['**/*.{ts,tsx}'],
