@@ -29,6 +29,42 @@ button {
   cursor: pointer;
 }
 
+.app-view-switch {
+  position: sticky;
+  top: 16px;
+  z-index: 20;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  padding: 16px 16px 0;
+}
+
+.app-view-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(180, 155, 125, 0.42);
+  background: rgba(255, 251, 245, 0.88);
+  color: #6b5234;
+  text-decoration: none;
+  box-shadow: 0 10px 24px rgba(134, 106, 74, 0.08);
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.app-view-chip:hover {
+  transform: translateY(-1px);
+  border-color: #b58e63;
+}
+
+.app-view-chip.is-active {
+  background: #8c6f4a;
+  color: #fff8ef;
+  border-color: #8c6f4a;
+}
+
 .daily-plan-page {
   max-width: 1360px;
   margin: 0 auto;
@@ -381,6 +417,18 @@ button {
 }
 
 @media (max-width: 760px) {
+  .app-view-switch {
+    top: 8px;
+    gap: 8px;
+    padding: 10px 12px 0;
+  }
+
+  .app-view-chip {
+    min-height: 36px;
+    padding: 8px 12px;
+    font-size: 0.92rem;
+  }
+
   .daily-plan-page {
     padding: 28px 16px 36px;
   }

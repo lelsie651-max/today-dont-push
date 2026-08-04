@@ -1,0 +1,247 @@
+.space-workspace {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 28px 24px 40px;
+}
+
+.space-workspace-shell {
+  display: grid;
+  gap: 20px;
+}
+
+.space-workspace-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.space-workspace-header h1 {
+  margin: 0;
+  font-size: clamp(2.4rem, 4vw, 3.6rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.space-workspace-header p {
+  margin: 8px 0 0;
+  max-width: 28rem;
+  color: #6d6258;
+}
+
+.space-scene {
+  position: relative;
+}
+
+.space-scene-frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: 32px;
+  border: 1px solid rgba(177, 156, 129, 0.45);
+  background:
+    linear-gradient(180deg, rgba(255, 249, 241, 0.94), rgba(245, 236, 223, 0.94)),
+    linear-gradient(120deg, rgba(255, 239, 216, 0.75), rgba(235, 224, 209, 0.4));
+  box-shadow: 0 24px 56px rgba(121, 98, 73, 0.12);
+}
+
+.space-scene-topbar {
+  min-height: 72px;
+  padding: 18px 24px;
+  border-bottom: 1px solid rgba(182, 160, 132, 0.22);
+  background: rgba(255, 252, 247, 0.5);
+}
+
+.space-scene-status {
+  display: inline-flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.space-scene-status span {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 248, 238, 0.9);
+  border: 1px solid rgba(191, 169, 139, 0.38);
+  color: #785d3f;
+  font-size: 0.92rem;
+}
+
+.space-scene-stage {
+  position: relative;
+  min-height: min(75vw, 900px);
+  aspect-ratio: 1440 / 900;
+}
+
+.asset-slot {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  transition: transform 180ms ease, filter 180ms ease;
+}
+
+.asset-slot:hover,
+.asset-slot:focus-visible {
+  transform: translateY(-4px) scale(1.01);
+  filter: saturate(1.05);
+  outline: none;
+}
+
+.asset-slot-surface {
+  width: 100%;
+  height: 100%;
+  border-radius: 24px;
+  border: 1px dashed rgba(137, 109, 76, 0.38);
+  background:
+    linear-gradient(180deg, rgba(255, 251, 246, 0.95), rgba(245, 231, 213, 0.96)),
+    repeating-linear-gradient(
+      135deg,
+      rgba(224, 204, 179, 0.2) 0,
+      rgba(224, 204, 179, 0.2) 12px,
+      rgba(255, 252, 248, 0.16) 12px,
+      rgba(255, 252, 248, 0.16) 24px
+    );
+  box-shadow: 0 12px 28px rgba(126, 101, 72, 0.1);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 18px;
+}
+
+.asset-slot-name {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #5f4730;
+  text-transform: lowercase;
+}
+
+.asset-slot-meta {
+  font-size: 0.85rem;
+  color: #8a7358;
+}
+
+.slot-room-background {
+  inset: 0;
+  z-index: 0;
+}
+
+.slot-room-background .asset-slot-surface {
+  border-style: solid;
+  border-width: 0;
+  border-radius: 0;
+  background:
+    radial-gradient(circle at 50% 15%, rgba(255, 240, 214, 0.88), transparent 24%),
+    linear-gradient(180deg, #f5eadb 0%, #f0e4d5 34%, #eadaca 100%);
+  box-shadow: none;
+}
+
+.slot-window-city-scene {
+  left: 30.5%;
+  top: 16%;
+  width: 38.5%;
+  z-index: 2;
+}
+
+.slot-window-city-scene .asset-slot-surface {
+  background:
+    linear-gradient(180deg, rgba(208, 226, 241, 0.94), rgba(174, 197, 218, 0.96)),
+    linear-gradient(180deg, rgba(255, 248, 238, 0.6), rgba(233, 225, 214, 0.3));
+}
+
+.slot-plan-board {
+  left: 6%;
+  top: 14%;
+  width: 22%;
+  z-index: 3;
+}
+
+.slot-desk-lamp {
+  left: 53%;
+  bottom: 11%;
+  width: 14.5%;
+  z-index: 5;
+}
+
+.slot-radio {
+  left: 16%;
+  bottom: 12%;
+  width: 18%;
+  z-index: 5;
+}
+
+.slot-focus-clock {
+  left: 38%;
+  bottom: 15%;
+  width: 11%;
+  z-index: 5;
+}
+
+.slot-tarot-entry {
+  right: 10%;
+  top: 23%;
+  width: 15%;
+  z-index: 4;
+}
+
+.slot-magazine {
+  left: 32%;
+  bottom: 8%;
+  width: 14%;
+  z-index: 4;
+}
+
+.slot-review-printer {
+  right: 7%;
+  bottom: 11%;
+  width: 17%;
+  z-index: 4;
+}
+
+.slot-plant {
+  right: 21%;
+  bottom: 10%;
+  width: 12%;
+  z-index: 4;
+}
+
+@media (max-width: 1080px) {
+  .space-workspace {
+    padding: 24px 18px 32px;
+  }
+
+  .space-workspace-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 760px) {
+  .space-workspace {
+    padding: 20px 14px 28px;
+  }
+
+  .space-scene-frame {
+    border-radius: 24px;
+  }
+
+  .space-scene-topbar {
+    min-height: 60px;
+    padding: 14px 16px;
+  }
+
+  .asset-slot-surface {
+    padding: 12px;
+    border-radius: 18px;
+  }
+
+  .asset-slot-name {
+    font-size: 0.84rem;
+  }
+
+  .asset-slot-meta {
+    font-size: 0.75rem;
+  }
+}

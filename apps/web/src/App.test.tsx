@@ -1,12 +1,17 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { ComponentProps } from 'react';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PlanPreviewRequest, PlanPreviewSuccessResponse } from '@today-dont-push/contracts';
 import type { PlanPreviewClient, PlanPreviewClientResult } from './api/plan-preview-client';
 import App from './App';
+
+afterEach(() => {
+  window.history.replaceState({}, '', '/');
+  cleanup();
+});
 
 function createIdFactory() {
   let value = 0;
@@ -475,5 +480,23 @@ describe('App', () => {
     const source = readFileSync(resolve(process.cwd(), 'apps/web/src/App.tsx'), 'utf8');
     expect(source).not.toContain('@today-dont-push/domain');
     expect(source).not.toContain('@today-dont-push/application');
+  });
+
+  it('可以切换到空间页面并渲染所有资产槽位', () => {
+    window.history.replaceState({}, '', '/?view=space');
+    render(<App />);
+
+    expect(screen.getByRole('link', { name: '每日计划页面' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '空间页面' })).toHaveClass('is-active');
+    expect(screen.getByRole('button', { name: 'room background' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'window city scene' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'plan board' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'desk lamp' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'radio' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'focus clock' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'tarot entry' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'magazine' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'review printer' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'plant' })).toBeInTheDocument();
   });
 });
