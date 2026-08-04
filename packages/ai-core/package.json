@@ -1,0 +1,26 @@
+{
+  "name": "@today-dont-push/ai-core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "AI 能力统一抽象（本轮仅空接口，不接入任何模型）",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b"
+  },
+  "devDependencies": {
+    "@today-dont-push/config": "workspace:*",
+    "typescript": "^5.9.3"
+  }
+}

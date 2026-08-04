@@ -1,0 +1,34 @@
+{
+  "name": "@today-dont-push/database",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Drizzle + PostgreSQL 数据访问结构（本轮预留结构，无业务表）",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.44.0",
+    "postgres": "^3.4.7"
+  },
+  "devDependencies": {
+    "@today-dont-push/config": "workspace:*",
+    "@types/node": "^24.0.0",
+    "drizzle-kit": "^0.31.0",
+    "typescript": "^5.9.3"
+  }
+}

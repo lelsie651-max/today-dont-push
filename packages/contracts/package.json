@@ -1,0 +1,29 @@
+{
+  "name": "@today-dont-push/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "跨端共享数据契约（Zod）",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@today-dont-push/config": "workspace:*",
+    "typescript": "^5.9.3"
+  }
+}

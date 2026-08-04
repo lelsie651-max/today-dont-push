@@ -1,0 +1,25 @@
+{
+  "name": "@today-dont-push/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "React 前端（本轮仅占位页「今天别硬撑」）",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@today-dont-push/config": "workspace:*",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^4.5.0",
+    "typescript": "^5.9.3",
+    "vite": "^6.3.5"
+  }
+}
