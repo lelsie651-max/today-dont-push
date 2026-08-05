@@ -1,4 +1,4 @@
-import type { RefCallback } from 'react';
+import type { ReactNode, RefCallback } from 'react';
 import { AssetSlot } from './AssetSlot';
 import {
   type AssetManifestEntry,
@@ -26,9 +26,7 @@ interface SpaceSceneProps {
   readonly editorMode?: boolean;
   readonly selectedItemKey?: SceneItemKey | null;
   readonly stageRef?: RefCallback<HTMLDivElement>;
-  readonly registerEditorTarget?: (
-    key: SceneItemKey,
-  ) => RefCallback<HTMLButtonElement>;
+  readonly editorOverlay?: ReactNode;
   readonly onSelectItem?: (key: SceneItemKey) => void;
 }
 
@@ -94,7 +92,7 @@ export function SpaceScene({
   editorMode = false,
   selectedItemKey = null,
   stageRef,
-  registerEditorTarget,
+  editorOverlay,
   onSelectItem,
 }: SpaceSceneProps) {
   const resolvedVisualState: SpaceVisualState = {
@@ -230,7 +228,6 @@ export function SpaceScene({
                 return (
                   <button
                     key={key}
-                    ref={registerEditorTarget?.(key)}
                     type="button"
                     className={`space-editor-target ${
                       selectedItemKey === key ? 'is-selected' : ''
@@ -247,6 +244,7 @@ export function SpaceScene({
               })}
             </div>
           ) : null}
+          {editorMode ? editorOverlay : null}
         </div>
       </div>
     </section>

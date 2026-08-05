@@ -7,7 +7,8 @@
       "@today-dont-push/domain": ["packages/domain/src/index.ts"],
       "@today-dont-push/application": ["packages/application/src/index.ts"],
       "@today-dont-push/database": ["packages/database/src/index.ts"],
-      "@today-dont-push/ai-core": ["packages/ai-core/src/index.ts"]
+      "@today-dont-push/ai-core": ["packages/ai-core/src/index.ts"],
+      "@dev/scene-editor-entry": ["apps/web/src/dev/scene-editor-entry.dev.tsx"]
     }
   },
   "files": ["packages/domain/src/index.ts"]

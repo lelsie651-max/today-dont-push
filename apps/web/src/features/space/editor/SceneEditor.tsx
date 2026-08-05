@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import Moveable, { type OnDrag, type OnResize } from 'react-moveable';
 import { SpaceScene } from '../SpaceScene';
 import {
   defaultSceneLayoutDocument,
@@ -12,18 +11,13 @@ import {
   canRedoSceneDocument,
   canUndoSceneDocument,
   commitSceneDocument,
-  createSceneInteractionStartSnapshot,
   createSceneEditorState,
   documentsEqual,
-  finishSceneInteraction,
   getSceneEditorDocument,
   nudgeSceneEditorItem,
-  previewDragByScreenDelta,
-  previewResizeByScreenDelta,
   redoSceneDocument,
   selectSceneItem,
   setSceneEditorSnapEnabled,
-  type SceneInteractionStartSnapshot,
   type SceneEditorState,
   toggleSceneEditorItemFlag,
   undoSceneDocument,
@@ -38,8 +32,9 @@ import {
 import { saveSceneLayoutToProject } from './scene-layout-dev-save';
 import { SceneHierarchy } from './SceneHierarchy';
 import { SceneInspector } from './SceneInspector';
+import { SceneTransformOverlay } from './SceneTransformOverlay';
 import { SceneToolbar } from './SceneToolbar';
-import { createStageMoveableMetrics, useStageMetrics } from './useStageMetrics';
+import { useStageMetrics } from './useStageMetrics';
 import './scene-editor.css';
 
 interface SceneEditorProps {
@@ -58,17 +53,6 @@ function isTypingTarget(target: EventTarget | null) {
     target instanceof HTMLSelectElement ||
     (target instanceof HTMLElement && target.isContentEditable)
   );
-}
-
-function getRelativeScreenDelta(
-  primary: readonly number[] | undefined,
-  fallback: readonly number[] | undefined,
-) {
-  const delta = primary ?? fallback;
-  return [
-    typeof delta?.[0] === 'number' ? delta[0] : 0,
-    typeof delta?.[1] === 'number' ? delta[1] : 0,
-  ] as const;
 }
 
 function loadSceneEditorTransientNotice() {
@@ -206,20 +190,14 @@ export function SceneEditor({
   const [notice, setNotice] = useState<string | null>(initialNotice);
   const [previewMode, setPreviewMode] = useState(false);
   const [stageElement, setStageElement] = useState<HTMLDivElement | null>(null);
-  const [targetElements, setTargetElements] = useState<Partial<Record<SceneItemKey, HTMLButtonElement | null>>>({});
-  const targetRefCallbacks = useRef<Partial<Record<SceneItemKey, (element: HTMLButtonElement | null) => void>>>({});
   const stageMetrics = useStageMetrics(stageElement);
-  const stageMetricsRef = useRef(stageMetrics);
   const editorStateRef = useRef(editorState);
-  const selectedItemKeyRef = useRef<SceneItemKey | null>(editorState.selectedItemKey);
   const autosaveFailureMessageRef = useRef<string | null>(null);
   const autosaveTimeoutRef = useRef<number | null>(null);
   const autosaveGenerationRef = useRef(0);
   const saveLockRef = useRef(false);
   const latestCanvasDocumentRef = useRef(getSceneEditorDocument(editorState));
   const latestCommittedDocumentRef = useRef(editorState.history.present);
-  const dragStartSnapshotRef = useRef<SceneInteractionStartSnapshot | null>(null);
-  const resizeStartSnapshotRef = useRef<SceneInteractionStartSnapshot | null>(null);
   const lastProjectSavedDocumentRef = useRef<ReturnType<typeof getSceneEditorDocument> | null>(
     initialLastProjectSavedDocument,
   );
@@ -228,24 +206,10 @@ export function SceneEditor({
   const document = getSceneEditorDocument(editorState);
   const selectedItemKey = editorState.selectedItemKey;
   const selectedItem = selectedItemKey === null ? null : document.items[selectedItemKey];
-  const selectedTarget = selectedItemKey === null ? null : targetElements[selectedItemKey] ?? null;
   const editingLocked = isSavingToProject;
-  const canTransform = Boolean(selectedItem && selectedItem.visible && !selectedItem.locked && !editingLocked);
-  const moveableMetrics = useMemo(
-    () => createStageMoveableMetrics(stageMetrics, editorState.snapEnabled),
-    [editorState.snapEnabled, stageMetrics],
-  );
   editorStateRef.current = editorState;
   latestCanvasDocumentRef.current = document;
   latestCommittedDocumentRef.current = editorState.history.present;
-
-  useEffect(() => {
-    stageMetricsRef.current = stageMetrics;
-  }, [stageMetrics]);
-
-  useEffect(() => {
-    selectedItemKeyRef.current = selectedItemKey;
-  }, [selectedItemKey]);
 
   const clearAutosaveTimer = useCallback(() => {
     if (autosaveTimeoutRef.current !== null) {
@@ -259,7 +223,6 @@ export function SceneEditor({
     nextNotice?: string | null,
   ) => {
     editorStateRef.current = nextEditorState;
-    selectedItemKeyRef.current = nextEditorState.selectedItemKey;
     latestCommittedDocumentRef.current = nextEditorState.history.present;
     latestCanvasDocumentRef.current = getSceneEditorDocument(nextEditorState);
     flushSync(() => {
@@ -415,30 +378,6 @@ export function SceneEditor({
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [previewMode, selectedItemKey, selectedItem?.locked, updateEditorState]);
-
-  const registerEditorTarget = useCallback(
-    (key: SceneItemKey) => {
-      const existingCallback = targetRefCallbacks.current[key];
-      if (existingCallback !== undefined) {
-        return existingCallback;
-      }
-
-      const nextCallback = (element: HTMLButtonElement | null) => {
-        setTargetElements((current) => {
-          if ((current[key] ?? null) === element) {
-            return current;
-          }
-          return {
-            ...current,
-            [key]: element,
-          };
-        });
-      };
-      targetRefCallbacks.current[key] = nextCallback;
-      return nextCallback;
-    },
-    [],
-  );
 
   const handlePatchItem = (
     key: SceneItemKey,
@@ -644,111 +583,34 @@ export function SceneEditor({
             editorMode
             selectedItemKey={selectedItemKey}
             stageRef={setStageElement}
-            registerEditorTarget={registerEditorTarget}
+            editorOverlay={selectedItemKey !== null && selectedItem !== null && selectedItemKey !== 'windowViewport' ? (
+              <SceneTransformOverlay
+                document={document}
+                itemKey={selectedItemKey}
+                snapEnabled={editorState.snapEnabled}
+                stageScale={stageMetrics.scale}
+                editingLocked={editingLocked}
+                onPreviewDocument={(nextDocument) => {
+                  updateEditorState((current) => ({
+                    ...current,
+                    interactionDocument: nextDocument,
+                  }));
+                }}
+                onCommitDocument={(nextDocument) => {
+                  updateEditorState((current) => commitSceneDocument(current, nextDocument));
+                }}
+                onCancelInteraction={() => {
+                  updateEditorState((current) => ({
+                    ...current,
+                    interactionDocument: null,
+                  }));
+                }}
+              />
+            ) : null}
             onSelectItem={(key) => {
               updateEditorState((current) => selectSceneItem(current, key));
             }}
           />
-          {selectedTarget !== null && selectedItem !== null && selectedItem.visible ? (
-            <Moveable
-              target={selectedTarget}
-              container={stageElement ?? undefined}
-              origin={false}
-              draggable={canTransform}
-              resizable={canTransform}
-              snappable={editorState.snapEnabled}
-              keepRatio={selectedItem.keepRatio}
-              bounds={moveableMetrics.bounds}
-              verticalGuidelines={moveableMetrics.verticalGuidelines}
-              horizontalGuidelines={moveableMetrics.horizontalGuidelines}
-              snapGridWidth={moveableMetrics.snapGridWidth}
-              snapGridHeight={moveableMetrics.snapGridHeight}
-              throttleDrag={0}
-              throttleResize={0}
-              onDragStart={() => {
-                const activeItemKey = selectedItemKeyRef.current;
-                if (activeItemKey === null) {
-                  return;
-                }
-                dragStartSnapshotRef.current = createSceneInteractionStartSnapshot(
-                  getSceneEditorDocument(editorStateRef.current),
-                  activeItemKey,
-                  stageMetricsRef.current.scale,
-                );
-              }}
-              onDrag={({ beforeDist, dist }: OnDrag) => {
-                if (saveLockRef.current) {
-                  return;
-                }
-                const snapshot = dragStartSnapshotRef.current;
-                if (snapshot === null) {
-                  return;
-                }
-                const [screenDx, screenDy] = getRelativeScreenDelta(beforeDist, dist);
-                updateEditorState((current) => (
-                  previewDragByScreenDelta(
-                    current,
-                    snapshot,
-                    screenDx,
-                    screenDy,
-                    stageMetricsRef.current.scale,
-                  )
-                ));
-              }}
-              onDragEnd={({ isDrag }) => {
-                dragStartSnapshotRef.current = null;
-                if (!isDrag || saveLockRef.current) {
-                  return;
-                }
-                updateEditorState((current) => finishSceneInteraction(current));
-              }}
-              onResizeStart={() => {
-                const activeItemKey = selectedItemKeyRef.current;
-                if (activeItemKey === null) {
-                  return;
-                }
-                resizeStartSnapshotRef.current = createSceneInteractionStartSnapshot(
-                  getSceneEditorDocument(editorStateRef.current),
-                  activeItemKey,
-                  stageMetricsRef.current.scale,
-                );
-              }}
-              onResize={(event: OnResize) => {
-                if (saveLockRef.current) {
-                  return;
-                }
-                const snapshot = resizeStartSnapshotRef.current;
-                if (snapshot === null) {
-                  return;
-                }
-                const preferredDimension =
-                  Math.abs(event.delta[0]) >= Math.abs(event.delta[1]) ? 'width' : 'height';
-                const [screenDx, screenDy] = getRelativeScreenDelta(
-                  event.drag.beforeDist,
-                  event.drag.dist,
-                );
-                updateEditorState((current) => (
-                  previewResizeByScreenDelta(
-                    current,
-                    snapshot,
-                    screenDx,
-                    screenDy,
-                    event.width,
-                    event.height,
-                    stageMetricsRef.current.scale,
-                    preferredDimension,
-                  )
-                ));
-              }}
-              onResizeEnd={({ isDrag }) => {
-                resizeStartSnapshotRef.current = null;
-                if (!isDrag || saveLockRef.current) {
-                  return;
-                }
-                updateEditorState((current) => finishSceneInteraction(current));
-              }}
-            />
-          ) : null}
         </div>
 
         <SceneInspector

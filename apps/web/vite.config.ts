@@ -27,4 +27,14 @@ export default defineConfig(({ command }) => ({
       },
     },
   },
+  resolve: {
+    alias: {
+      '@dev/scene-editor-entry': path.resolve(
+        webRoot,
+        command === 'serve'
+          ? 'src/dev/scene-editor-entry.dev.tsx'
+          : 'src/dev/scene-editor-entry.prod.tsx',
+      ),
+    },
+  },
 }));

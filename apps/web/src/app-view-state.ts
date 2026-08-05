@@ -1,3 +1,5 @@
+import { resolveSceneEditorView } from '@dev/scene-editor-entry';
+
 export interface AppViewState {
   readonly isSpaceView: boolean;
   readonly debugAssets: boolean;
@@ -15,6 +17,6 @@ export function resolveAppViewState(
   return {
     isSpaceView,
     debugAssets: searchParams.get('debugAssets') === '1',
-    isSceneEditorView: isDevelopment && isSpaceView && searchParams.get('sceneEditor') === '1',
+    isSceneEditorView: resolveSceneEditorView(searchParams, isSpaceView, isDevelopment),
   };
 }

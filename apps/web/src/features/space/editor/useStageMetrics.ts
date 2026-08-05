@@ -7,20 +7,6 @@ export interface StageMetrics {
   readonly scale: number;
 }
 
-export interface StageMoveableMetrics {
-  readonly bounds: {
-    readonly left: number;
-    readonly top: number;
-    readonly right: number;
-    readonly bottom: number;
-    readonly position: 'css';
-  };
-  readonly verticalGuidelines: number[];
-  readonly horizontalGuidelines: number[];
-  readonly snapGridWidth: number;
-  readonly snapGridHeight: number;
-}
-
 function getSafeStageDimension(value: number, fallback: number) {
   if (!Number.isFinite(value) || value <= 0) {
     return fallback;
@@ -44,25 +30,6 @@ export function measureStageElement(stageElement: HTMLElement | null): StageMetr
     return createStageMetrics(SCENE_DESIGN_WIDTH, SCENE_DESIGN_HEIGHT);
   }
   return createStageMetrics(stageElement.clientWidth, stageElement.clientHeight);
-}
-
-export function createStageMoveableMetrics(
-  metrics: StageMetrics,
-  snapEnabled: boolean,
-): StageMoveableMetrics {
-  return {
-    bounds: {
-      left: 0,
-      top: 0,
-      right: metrics.width,
-      bottom: metrics.height,
-      position: 'css',
-    },
-    verticalGuidelines: [0, metrics.width / 2, metrics.width],
-    horizontalGuidelines: [0, metrics.height / 2, metrics.height],
-    snapGridWidth: snapEnabled ? 10 * metrics.scale : 0,
-    snapGridHeight: snapEnabled ? 10 * metrics.scale : 0,
-  };
 }
 
 export function useStageMetrics(stageElement: HTMLDivElement | null): StageMetrics {

@@ -30,7 +30,7 @@ export const assetManifest = {
   sceneBackground: {
     morning: {
       label: 'scene background',
-      path: '/assets/scene/background/scene-background-morning.webp',
+      path: '/assets/scene/background/scene-background-morning.png',
       width: 1920,
       height: 1200,
       role: 'decorative',
@@ -38,7 +38,7 @@ export const assetManifest = {
     },
     daytime: {
       label: 'scene background',
-      path: '/assets/scene/background/scene-background-daytime.webp',
+      path: '/assets/scene/background/scene-background-daytime.png',
       width: 1920,
       height: 1200,
       role: 'decorative',
@@ -46,7 +46,7 @@ export const assetManifest = {
     },
     evening: {
       label: 'scene background',
-      path: '/assets/scene/background/scene-background-evening.webp',
+      path: '/assets/scene/background/scene-background-evening.png',
       width: 1920,
       height: 1200,
       role: 'decorative',
@@ -54,7 +54,7 @@ export const assetManifest = {
     },
     night: {
       label: 'scene background',
-      path: '/assets/scene/background/scene-background-night.webp',
+      path: '/assets/scene/background/scene-background-night.png',
       width: 1920,
       height: 1200,
       role: 'decorative',

@@ -15,7 +15,7 @@ describe('AssetSlot', () => {
 
     const image = container.querySelector('img');
     expect(image).not.toBeNull();
-    expect(image).toHaveAttribute('src', '/assets/scene/background/scene-background-daytime.webp');
+    expect(image).toHaveAttribute('src', '/assets/scene/background/scene-background-daytime.png');
   });
 
   it('根元素具有 manifest 对应的 aspect-ratio', () => {
@@ -47,6 +47,7 @@ describe('AssetSlot', () => {
 
     expect(screen.getByText('scene background')).toBeInTheDocument();
     expect(screen.getByText('1920 x 1200')).toBeInTheDocument();
+    expect(screen.getByText('/assets/scene/background/scene-background-daytime.png')).toBeInTheDocument();
     expect(container.firstElementChild).toHaveStyle({ aspectRatio: '1920 / 1200' });
   });
 
@@ -67,6 +68,7 @@ describe('AssetSlot', () => {
 
     expect(screen.queryByText('scene background')).not.toBeInTheDocument();
     expect(screen.queryByText('1920 x 1200')).not.toBeInTheDocument();
+    expect(screen.queryByText('/assets/scene/background/scene-background-daytime.png')).not.toBeInTheDocument();
     expect(container.firstElementChild).toHaveStyle({ aspectRatio: '1920 / 1200' });
   });
 

@@ -58,6 +58,7 @@ export function AssetSlot({
           <span className="asset-slot-meta">
             {manifest.width} x {manifest.height}
           </span>
+          <span className="asset-slot-path">{manifest.path}</span>
         </div>
       ) : null}
     </>

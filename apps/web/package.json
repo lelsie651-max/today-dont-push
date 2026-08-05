@@ -13,8 +13,7 @@
   "dependencies": {
     "@today-dont-push/contracts": "workspace:*",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "react-moveable": "^0.56.0"
+    "react-dom": "^19.1.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",

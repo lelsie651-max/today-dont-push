@@ -184,6 +184,12 @@
   color: #8a7358;
 }
 
+.asset-slot-path {
+  font-size: 0.76rem;
+  color: #8f5d46;
+  word-break: break-all;
+}
+
 [data-asset-id='scene-background'] .asset-slot-surface,
 [data-asset-id='weather-overlay'] .asset-slot-surface,
 [data-asset-id='room-foreground'] .asset-slot-surface {

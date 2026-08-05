@@ -15,7 +15,7 @@ describe('SpaceScene', () => {
 
     const backgroundImage = document.querySelector('[data-asset-id="scene-background"] img');
     const weatherImage = document.querySelector('[data-asset-id="weather-overlay"] img');
-    expect(backgroundImage).toHaveAttribute('src', '/assets/scene/background/scene-background-daytime.webp');
+    expect(backgroundImage).toHaveAttribute('src', '/assets/scene/background/scene-background-daytime.png');
     expect(weatherImage).toHaveAttribute('src', '/assets/scene/weather/weather-clear.png');
   });
 
@@ -24,7 +24,7 @@ describe('SpaceScene', () => {
 
     const backgroundImage = document.querySelector('[data-asset-id="scene-background"] img');
     const weatherImage = document.querySelector('[data-asset-id="weather-overlay"] img');
-    expect(backgroundImage).toHaveAttribute('src', '/assets/scene/background/scene-background-morning.webp');
+    expect(backgroundImage).toHaveAttribute('src', '/assets/scene/background/scene-background-morning.png');
     expect(weatherImage).toHaveAttribute('src', '/assets/scene/weather/weather-rain.png');
   });
 
@@ -78,7 +78,7 @@ describe('SpaceScene', () => {
   it('manifest 的关键文件名和尺寸符合标准', () => {
     expect(assetManifest.roomForeground.path).toBe('/assets/scene/scene-room-foreground.png');
     expect(assetManifest.roomForeground.width).toBe(1920);
-    expect(assetManifest.sceneBackground.night.path).toBe('/assets/scene/background/scene-background-night.webp');
+    expect(assetManifest.sceneBackground.night.path).toBe('/assets/scene/background/scene-background-night.png');
     expect(assetManifest.sceneBackground.night.width).toBe(1920);
     expect(assetManifest.weatherOverlay.storm.path).toBe('/assets/scene/weather/weather-storm.png');
     expect(assetManifest.weatherOverlay.storm.height).toBe(1200);

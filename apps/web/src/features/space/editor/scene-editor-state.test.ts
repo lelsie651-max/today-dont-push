@@ -21,7 +21,6 @@ import {
 } from './scene-editor-state';
 import {
   createStageMetrics,
-  createStageMoveableMetrics,
 } from './useStageMetrics';
 
 describe('scene-editor-state', () => {
@@ -184,7 +183,7 @@ describe('scene-editor-state', () => {
     });
   });
 
-  it('Moveable 绝对 left/top 失真时，只要 dist 正确就不会跳到 0/0', () => {
+  it('DOM target 即使位于 0/0，起始快照与相对 delta 仍不会跳到 0/0', () => {
     const state = createSceneEditorState(defaultSceneLayoutDocument);
     const snapshot = createSceneInteractionStartSnapshot(
       defaultSceneLayoutDocument,
@@ -286,16 +285,11 @@ describe('scene-editor-state', () => {
     expect(atThreeQuarter.items.radio.x).toBe(318);
   });
 
-  it('bounds 与 guidelines 会随 metrics 同步更新', () => {
-    const metrics = createStageMoveableMetrics(createStageMetrics(1080, 675), true);
+  it('舞台 metrics 会跟随 client 尺寸变化', () => {
+    const metrics = createStageMetrics(1080, 675);
 
-    expect(metrics.bounds).toMatchObject({
-      right: 1080,
-      bottom: 675,
-    });
-    expect(metrics.verticalGuidelines).toEqual([0, 540, 1080]);
-    expect(metrics.horizontalGuidelines).toEqual([0, 337.5, 675]);
-    expect(metrics.snapGridWidth).toBe(7.5);
-    expect(metrics.snapGridHeight).toBe(7.5);
+    expect(metrics.width).toBe(1080);
+    expect(metrics.height).toBe(675);
+    expect(metrics.scale).toBe(0.75);
   });
 });

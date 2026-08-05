@@ -1,8 +1,12 @@
 {
   "extends": "@today-dont-push/config/tsconfig.react.json",
   "compilerOptions": {
+    "baseUrl": ".",
     "noEmit": true,
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    "paths": {
+      "@dev/scene-editor-entry": ["src/dev/scene-editor-entry.dev.tsx"]
+    }
   },
   "include": ["src", "vite.config.ts"]
 }

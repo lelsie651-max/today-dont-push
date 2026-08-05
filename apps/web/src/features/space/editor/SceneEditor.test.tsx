@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, createEvent, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SCENE_LAYOUT_DRAFT_STORAGE_KEY } from './scene-editor-storage';
@@ -20,6 +20,36 @@ import { SceneEditor } from './SceneEditor';
 
 function getOverlay(key: string) {
   return screen.getByTestId(`space-editor-target-${key}`);
+}
+
+function dispatchPointerEvent(
+  element: Element,
+  type: 'pointerdown' | 'pointermove' | 'pointerup' | 'pointercancel',
+  init: {
+    readonly pointerId: number;
+    readonly clientX: number;
+    readonly clientY: number;
+  },
+) {
+  const eventFactory = {
+    pointerdown: createEvent.pointerDown,
+    pointermove: createEvent.pointerMove,
+    pointerup: createEvent.pointerUp,
+    pointercancel: createEvent.pointerCancel,
+  }[type];
+  const event = eventFactory(element, {
+    bubbles: true,
+    cancelable: true,
+    clientX: init.clientX,
+    clientY: init.clientY,
+  });
+  Object.defineProperties(event, {
+    pointerId: { value: init.pointerId },
+    clientX: { value: init.clientX },
+    clientY: { value: init.clientY },
+    pointerType: { value: 'mouse' },
+  });
+  fireEvent(element, event);
 }
 
 describe('SceneEditor', () => {
@@ -236,6 +266,39 @@ describe('SceneEditor', () => {
     await user.click(screen.getByRole('button', { name: 'Redo' }));
     expect(screen.getByLabelText('x')).toHaveValue('300');
     expect(screen.getByText('已重做上一步布局修改。')).toBeInTheDocument();
+  });
+
+  it('Pointer 拖拽会在 pointerup 时提交一个历史节点，并保持 Undo/Redo 可用', async () => {
+    const user = userEvent.setup();
+    render(<SceneEditor />);
+
+    await user.click(screen.getByRole('button', { name: '在层级中选择 radio' }));
+    const frame = screen.getByTestId('scene-transform-overlay-frame') as HTMLDivElement & {
+      setPointerCapture?: (pointerId: number) => void;
+      releasePointerCapture?: (pointerId: number) => void;
+      hasPointerCapture?: (pointerId: number) => boolean;
+    };
+    let capturedPointerId: number | null = null;
+    frame.setPointerCapture = (pointerId) => {
+      capturedPointerId = pointerId;
+    };
+    frame.releasePointerCapture = (pointerId) => {
+      if (capturedPointerId === pointerId) {
+        capturedPointerId = null;
+      }
+    };
+    frame.hasPointerCapture = (pointerId) => capturedPointerId === pointerId;
+
+    dispatchPointerEvent(frame, 'pointerdown', { pointerId: 11, clientX: 238, clientY: 631 });
+    dispatchPointerEvent(frame, 'pointermove', { pointerId: 11, clientX: 258, clientY: 631 });
+    dispatchPointerEvent(frame, 'pointerup', { pointerId: 11, clientX: 258, clientY: 631 });
+
+    expect(screen.getByLabelText('x')).toHaveValue('260');
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeEnabled();
+
+    await user.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(screen.getByLabelText('x')).toHaveValue('238');
+    expect(screen.getByRole('button', { name: 'Redo' })).toBeEnabled();
   });
 
   it('吸附按钮会同步切换文字和 aria-pressed', async () => {
@@ -696,6 +759,7 @@ describe('SceneEditor', () => {
     expect(screen.queryByRole('region', { name: '场景层级' })).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: '属性检查器' })).not.toBeInTheDocument();
     expect(screen.queryByTestId('space-editor-target-layer')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('scene-transform-overlay')).not.toBeInTheDocument();
     expect(screen.queryByTestId('space-debug-layer')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '返回编辑' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: '窗边桌面空间' })).toBeInTheDocument();

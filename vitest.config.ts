@@ -15,6 +15,11 @@ const workspaceAliases = [
   replacement: `${root}packages/${name}/src/index.ts`,
 }));
 
+workspaceAliases.push({
+  find: /^@dev\/scene-editor-entry$/,
+  replacement: `${root}apps/web/src/dev/scene-editor-entry.dev.tsx`,
+});
+
 export default defineConfig({
   resolve: {
     alias: workspaceAliases,
@@ -28,6 +33,9 @@ export default defineConfig({
     ],
     projects: [
       {
+        resolve: {
+          alias: workspaceAliases,
+        },
         test: {
           name: 'web',
           include: ['apps/web/src/**/*.test.tsx'],
@@ -36,6 +44,9 @@ export default defineConfig({
         },
       },
       {
+        resolve: {
+          alias: workspaceAliases,
+        },
         test: {
           name: 'node',
           include: [

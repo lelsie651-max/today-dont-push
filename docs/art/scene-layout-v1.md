@@ -64,6 +64,18 @@
 - 前端会把三层统一映射到 `1440 x 900` 设计舞台。
 - `windowViewport` 只保留为 Guide，不再作为天空/天气裁切容器。
 
+当前正式资源路径约定为：
+
+- `sceneBackground.morning`: `/assets/scene/background/scene-background-morning.png`
+- `sceneBackground.daytime`: `/assets/scene/background/scene-background-daytime.png`
+- `sceneBackground.evening`: `/assets/scene/background/scene-background-evening.png`
+- `sceneBackground.night`: `/assets/scene/background/scene-background-night.png`
+- `weatherOverlay.clear`: `/assets/scene/weather/weather-clear.png`
+- `weatherOverlay.cloudy`: `/assets/scene/weather/weather-cloudy.png`
+- `weatherOverlay.rain`: `/assets/scene/weather/weather-rain.png`
+- `weatherOverlay.storm`: `/assets/scene/weather/weather-storm.png`
+- `roomForeground`: `/assets/scene/scene-room-foreground.png`
+
 ## 6. 窗洞必须完全透明
 
 - `roomForeground` 的窗洞区域必须是完全透明，不能留半透明底色、磨砂蒙版或烘焙背景。
