@@ -16,6 +16,30 @@
   gap: 16px;
 }
 
+.space-workspace-editor-header {
+  padding: 8px 4px 0;
+}
+
+.space-workspace-editor-eyebrow {
+  margin: 0 0 8px;
+  font-size: 0.92rem;
+  color: #8c6f4a;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.space-workspace-editor-header h1 {
+  margin: 0;
+  font-size: clamp(2rem, 3vw, 2.8rem);
+  line-height: 1.05;
+}
+
+.space-workspace-editor-header p {
+  margin: 8px 0 0;
+  max-width: 36rem;
+  color: #6d6258;
+}
+
 .space-workspace-header h1 {
   margin: 0;
   font-size: clamp(2.4rem, 4vw, 3.6rem);

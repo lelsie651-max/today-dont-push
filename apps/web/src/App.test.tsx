@@ -10,6 +10,7 @@ import App from './App';
 
 afterEach(() => {
   window.history.replaceState({}, '', '/');
+  window.sessionStorage.clear();
   cleanup();
 });
 

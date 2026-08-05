@@ -25,6 +25,7 @@ function getOverlay(key: string) {
 describe('SceneEditor', () => {
   beforeEach(() => {
     window.localStorage.clear();
+    window.sessionStorage.clear();
     documentsEqualMock.mockClear();
     documentsEqualMock.mockImplementation((a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b));
   });
@@ -44,6 +45,13 @@ describe('SceneEditor', () => {
     await user.click(screen.getByRole('button', { name: '在层级中选择 radio' }));
     expect(screen.getByText('radio', { selector: 'code' })).toBeInTheDocument();
     expect(getOverlay('radio')).toHaveClass('is-selected');
+  });
+
+  it('没有历史时 Undo 和 Redo 会禁用', () => {
+    render(<SceneEditor />);
+
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Redo' })).toBeDisabled();
   });
 
   it('locked 物件在 Inspector 中不能修改几何数值', async () => {
@@ -204,9 +212,23 @@ describe('SceneEditor', () => {
 
     await user.click(screen.getByRole('button', { name: 'Undo' }));
     expect(screen.getByLabelText('x')).toHaveValue('238');
+    expect(screen.getByText('已撤销上一步布局修改。')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Redo' }));
     expect(screen.getByLabelText('x')).toHaveValue('300');
+    expect(screen.getByText('已重做上一步布局修改。')).toBeInTheDocument();
+  });
+
+  it('吸附按钮会同步切换文字和 aria-pressed', async () => {
+    const user = userEvent.setup();
+    render(<SceneEditor />);
+
+    const snapButton = screen.getByRole('button', { name: '关闭吸附' });
+    expect(snapButton).toHaveAttribute('aria-pressed', 'true');
+
+    await user.click(snapButton);
+    expect(screen.getByRole('button', { name: '开启吸附' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByText('已关闭吸附。')).toBeInTheDocument();
   });
 
   it('草稿会保存、恢复，并且清除草稿不改变当前画布', async () => {
@@ -232,6 +254,7 @@ describe('SceneEditor', () => {
     fireEvent.click(screen.getByRole('button', { name: '清除本地草稿' }));
     expect(window.localStorage.getItem(SCENE_LAYOUT_DRAFT_STORAGE_KEY)).toBeNull();
     expect(screen.getByLabelText('x')).toHaveValue('320');
+    expect(screen.getByText('本地草稿已清除，刷新后会回到默认布局。')).toBeInTheDocument();
   });
 
   it('无效草稿不会使页面崩溃', () => {
@@ -333,6 +356,34 @@ describe('SceneEditor', () => {
     expect(clickSpy).toHaveBeenCalledTimes(1);
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:scene-layout');
     expect(screen.getByText('布局 JSON 已导出。')).toBeInTheDocument();
+  });
+
+  it('恢复默认取消确认时保持原布局不变', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+
+    render(<SceneEditor />);
+    await user.click(screen.getByRole('button', { name: '在层级中选择 radio' }));
+    fireEvent.change(screen.getByLabelText('x'), { target: { value: '300' } });
+
+    await user.click(screen.getByRole('button', { name: '恢复默认布局' }));
+
+    expect(screen.getByLabelText('x')).toHaveValue('300');
+    expect(screen.queryByText('已恢复默认布局。')).not.toBeInTheDocument();
+  });
+
+  it('恢复默认确认后恢复布局并显示提示', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    render(<SceneEditor />);
+    await user.click(screen.getByRole('button', { name: '在层级中选择 radio' }));
+    fireEvent.change(screen.getByLabelText('x'), { target: { value: '300' } });
+
+    await user.click(screen.getByRole('button', { name: '恢复默认布局' }));
+
+    expect(screen.getByLabelText('x')).toHaveValue('238');
+    expect(screen.getByText('已恢复默认布局。')).toBeInTheDocument();
   });
 
   it('修改后不足300ms立即保存，成功后草稿不会被旧定时器重新创建', async () => {
@@ -516,6 +567,78 @@ describe('SceneEditor', () => {
       expect(screen.getByText('已保存到scene-layout.json，Git现在可以看到修改。')).toBeInTheDocument();
     });
     expect(window.localStorage.getItem(SCENE_LAYOUT_DRAFT_STORAGE_KEY)).toBeNull();
+  });
+
+  it('保存成功后重新挂载会恢复编辑会话和成功提示', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: 'ok',
+        message: '已保存到scene-layout.json，Git现在可以看到修改。',
+      }),
+    })) as unknown as typeof fetch);
+
+    const { unmount } = render(<SceneEditor />);
+    await user.click(screen.getByRole('button', { name: '在层级中选择 radio' }));
+    fireEvent.change(screen.getByLabelText('x'), { target: { value: '320' } });
+
+    await user.click(screen.getByRole('button', { name: '保存到工程' }));
+    await waitFor(() => {
+      expect(screen.getByText('已保存到scene-layout.json，Git现在可以看到修改。')).toBeInTheDocument();
+    });
+
+    unmount();
+    render(<SceneEditor />);
+
+    expect(screen.getByText('已保存到scene-layout.json，Git现在可以看到修改。')).toBeInTheDocument();
+    expect(screen.getByText('radio', { selector: 'code' })).toBeInTheDocument();
+    expect(screen.getByLabelText('x')).toHaveValue('320');
+  });
+
+  it('预览当前效果会进入 previewMode 并隐藏编辑 UI', async () => {
+    const user = userEvent.setup();
+    render(<SceneEditor debugAssets />);
+
+    await user.click(screen.getByRole('button', { name: '在层级中选择 radio' }));
+    await user.click(screen.getByRole('button', { name: '预览当前效果' }));
+
+    expect(screen.queryByRole('region', { name: '场景编辑器工具栏' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: '场景层级' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: '属性检查器' })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('space-editor-target-layer')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('space-debug-layer')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '返回编辑' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: '窗边桌面空间' })).toBeInTheDocument();
+  });
+
+  it('previewMode 使用当前未保存布局，返回编辑后状态和选中项不丢失', async () => {
+    const user = userEvent.setup();
+    render(<SceneEditor />);
+
+    await user.click(screen.getByRole('button', { name: '在层级中选择 radio' }));
+    fireEvent.change(screen.getByLabelText('x'), { target: { value: '320' } });
+
+    await user.click(screen.getByRole('button', { name: '预览当前效果' }));
+    await user.click(screen.getByRole('button', { name: '返回编辑' }));
+
+    expect(screen.getByLabelText('x')).toHaveValue('320');
+    expect(screen.getByText('radio', { selector: 'code' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeEnabled();
+  });
+
+  it('Escape 可以从 previewMode 返回编辑', async () => {
+    const user = userEvent.setup();
+    render(<SceneEditor />);
+
+    await user.click(screen.getByRole('button', { name: '预览当前效果' }));
+    expect(screen.getByRole('button', { name: '返回编辑' })).toBeInTheDocument();
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+
+    expect(screen.getByRole('button', { name: '预览当前效果' })).toBeInTheDocument();
   });
 
   it('保存成功但画布异常变化时保留草稿并提示仍有未保存修改', async () => {

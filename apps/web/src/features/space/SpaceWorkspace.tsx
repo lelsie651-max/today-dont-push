@@ -1,10 +1,11 @@
 import { Component, Suspense, lazy, type ReactNode } from 'react';
 import './space.css';
 import { SpaceScene } from './SpaceScene';
-import { resolveSpaceWorkspaceMode } from './space-workspace-mode';
+import type { SpaceWorkspaceMode } from './space-workspace-mode';
 
 interface SpaceWorkspaceProps {
   readonly debugAssets?: boolean;
+  readonly mode?: SpaceWorkspaceMode;
 }
 
 const DevEditorPanel =
@@ -39,22 +40,32 @@ class DevEditorLoadBoundary extends Component<
   }
 }
 
-export function SpaceWorkspace({ debugAssets = false }: SpaceWorkspaceProps) {
-  const mode =
-    typeof window !== 'undefined'
-      ? resolveSpaceWorkspaceMode(window.location.search, import.meta.env.DEV)
-      : { enableDevEditor: false };
+export function SpaceWorkspace({
+  debugAssets = false,
+  mode = 'scene',
+}: SpaceWorkspaceProps) {
+  const isEditorMode = mode === 'editor';
 
   return (
-    <main className="space-workspace">
+    <main className={`space-workspace ${isEditorMode ? 'is-editor-mode' : ''}`}>
       <div className="space-workspace-shell">
-        <header className="space-workspace-header">
-          <div>
-            <h1>今天别硬撑</h1>
-            <p>先给未来的窗边桌面留出位置。这里会慢慢长成一个属于你的陪伴空间。</p>
-          </div>
-        </header>
-        {mode.enableDevEditor && DevEditorPanel !== null ? (
+        {isEditorMode ? (
+          <header className="space-workspace-editor-header">
+            <div>
+              <p className="space-workspace-editor-eyebrow">Scene Editor Workspace</p>
+              <h1>场景编辑器</h1>
+              <p>当前是独立编辑模式，不显示会丢失 `sceneEditor=1` 的业务导航。</p>
+            </div>
+          </header>
+        ) : (
+          <header className="space-workspace-header">
+            <div>
+              <h1>今天别硬撑</h1>
+              <p>先给未来的窗边桌面留出位置。这里会慢慢长成一个属于你的陪伴空间。</p>
+            </div>
+          </header>
+        )}
+        {isEditorMode && DevEditorPanel !== null ? (
           <DevEditorLoadBoundary>
             <Suspense
               fallback={

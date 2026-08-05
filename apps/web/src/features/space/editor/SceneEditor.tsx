@@ -22,6 +22,7 @@ import {
   redoSceneDocument,
   selectSceneItem,
   setSceneEditorSnapEnabled,
+  type SceneEditorState,
   toggleSceneEditorItemFlag,
   undoSceneDocument,
   updateSceneEditorItem,
@@ -44,6 +45,8 @@ interface SceneEditorProps {
 }
 
 type SceneEditorDocumentState = ReturnType<typeof createSceneEditorState>;
+const SCENE_EDITOR_TRANSIENT_NOTICE_KEY = 'today-dont-push:scene-editor-transient-notice:v1';
+const SCENE_EDITOR_TRANSIENT_SESSION_KEY = 'today-dont-push:scene-editor-transient-session:v1';
 
 function isTypingTarget(target: EventTarget | null) {
   return (
@@ -54,16 +57,128 @@ function isTypingTarget(target: EventTarget | null) {
   );
 }
 
+function loadSceneEditorTransientNotice() {
+  try {
+    const value = window.sessionStorage.getItem(SCENE_EDITOR_TRANSIENT_NOTICE_KEY);
+    if (value === null || value.trim() === '') {
+      return null;
+    }
+    window.sessionStorage.removeItem(SCENE_EDITOR_TRANSIENT_NOTICE_KEY);
+    return value;
+  } catch {
+    return null;
+  }
+}
+
+function saveSceneEditorTransientNotice(message: string) {
+  try {
+    window.sessionStorage.setItem(SCENE_EDITOR_TRANSIENT_NOTICE_KEY, message);
+  } catch {
+    // Ignore sessionStorage errors; save feedback still appears in-page when possible.
+  }
+}
+
+function isSceneItemKey(value: unknown): value is SceneItemKey {
+  return typeof value === 'string' &&
+    defaultSceneLayoutDocument.items[value as SceneItemKey] !== undefined;
+}
+
+function toValidDocument(value: unknown) {
+  const validation = validateSceneLayoutDocument(value);
+  return validation.ok ? validation.document : null;
+}
+
+function loadSceneEditorTransientSession():
+  | { readonly editorState: SceneEditorState; readonly notice: string | null }
+  | null {
+  try {
+    const raw = window.sessionStorage.getItem(SCENE_EDITOR_TRANSIENT_SESSION_KEY);
+    if (raw === null) {
+      return null;
+    }
+
+    window.sessionStorage.removeItem(SCENE_EDITOR_TRANSIENT_SESSION_KEY);
+    const parsed = JSON.parse(raw) as {
+      readonly history?: {
+        readonly past?: readonly unknown[];
+        readonly present?: unknown;
+        readonly future?: readonly unknown[];
+      };
+      readonly selectedItemKey?: unknown;
+      readonly snapEnabled?: unknown;
+      readonly notice?: unknown;
+    };
+
+    const present = toValidDocument(parsed.history?.present);
+    if (present === null) {
+      return null;
+    }
+
+    const past = (parsed.history?.past ?? [])
+      .map((entry) => toValidDocument(entry))
+      .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+    const future = (parsed.history?.future ?? [])
+      .map((entry) => toValidDocument(entry))
+      .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+
+    const initialState = createSceneEditorState(present);
+    return {
+      editorState: {
+        ...initialState,
+        history: {
+          past,
+          present,
+          future,
+        },
+        selectedItemKey: isSceneItemKey(parsed.selectedItemKey)
+          ? parsed.selectedItemKey
+          : initialState.selectedItemKey,
+        snapEnabled: typeof parsed.snapEnabled === 'boolean'
+          ? parsed.snapEnabled
+          : initialState.snapEnabled,
+        interactionDocument: null,
+      },
+      notice: typeof parsed.notice === 'string' ? parsed.notice : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveSceneEditorTransientSession(
+  editorState: SceneEditorState,
+  notice: string | null,
+) {
+  try {
+    window.sessionStorage.setItem(
+      SCENE_EDITOR_TRANSIENT_SESSION_KEY,
+      JSON.stringify({
+        history: editorState.history,
+        selectedItemKey: editorState.selectedItemKey,
+        snapEnabled: editorState.snapEnabled,
+        notice,
+      }),
+    );
+  } catch {
+    // Ignore sessionStorage errors; in-page state still updates without cross-reload restore.
+  }
+}
+
 export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
   const [{ initialEditorState, initialNotice }] = useState(() => {
     const initial = getInitialSceneLayoutDocument();
+    const transientSession =
+      typeof window !== 'undefined' ? loadSceneEditorTransientSession() : null;
+    const transientNotice =
+      typeof window !== 'undefined' ? loadSceneEditorTransientNotice() : null;
     return {
-      initialEditorState: createSceneEditorState(initial.document),
-      initialNotice: initial.notice,
+      initialEditorState: transientSession?.editorState ?? createSceneEditorState(initial.document),
+      initialNotice: transientSession?.notice ?? transientNotice ?? initial.notice,
     };
   });
   const [editorState, setEditorState] = useState<SceneEditorDocumentState>(initialEditorState);
   const [notice, setNotice] = useState<string | null>(initialNotice);
+  const [previewMode, setPreviewMode] = useState(false);
   const [stageElement, setStageElement] = useState<HTMLDivElement | null>(null);
   const [targetElements, setTargetElements] = useState<Partial<Record<SceneItemKey, HTMLButtonElement | null>>>({});
   const targetRefCallbacks = useRef<Partial<Record<SceneItemKey, (element: HTMLButtonElement | null) => void>>>({});
@@ -184,7 +299,31 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
   useEffect(() => clearAutosaveTimer, [clearAutosaveTimer]);
 
   useEffect(() => {
+    if (!previewMode) {
+      return undefined;
+    }
+
+    const handlePreviewEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') {
+        return;
+      }
+
+      event.preventDefault();
+      setPreviewMode(false);
+    };
+
+    window.addEventListener('keydown', handlePreviewEscape);
+    return () => {
+      window.removeEventListener('keydown', handlePreviewEscape);
+    };
+  }, [previewMode]);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (previewMode) {
+        return;
+      }
+
       const isNudgeKey = event.key.startsWith('Arrow');
       const isUndoKey = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z';
       if (saveLockRef.current && (isUndoKey || isNudgeKey)) {
@@ -202,7 +341,7 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
           event.shiftKey
             ? redoSceneDocument(current)
             : undoSceneDocument(current)
-        ));
+        ), event.shiftKey ? '已重做上一步布局修改。' : '已撤销上一步布局修改。');
         return;
       }
 
@@ -238,7 +377,7 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selectedItemKey, selectedItem?.locked, updateEditorState]);
+  }, [previewMode, selectedItemKey, selectedItem?.locked, updateEditorState]);
 
   const registerEditorTarget = useCallback(
     (key: SceneItemKey) => {
@@ -330,16 +469,40 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
       }
 
       const clearResult = clearSceneLayoutDraft();
-      setNotice(
+      const successMessage =
         clearResult.ok
           ? saveResult.message
-          : `${saveResult.message} 但未能清除本地草稿：${clearResult.message}`,
-      );
+          : `${saveResult.message} 但未能清除本地草稿：${clearResult.message}`;
+      saveSceneEditorTransientSession(editorStateRef.current, successMessage);
+      saveSceneEditorTransientNotice(successMessage);
+      setNotice(successMessage);
     } finally {
       saveLockRef.current = false;
       setIsSavingToProject(false);
     }
   }, [clearAutosaveTimer]);
+
+  if (previewMode) {
+    return (
+      <section className="scene-editor scene-editor-preview-mode" aria-label="场景编辑器预览模式">
+        <div className="scene-editor-preview-actions">
+          <button
+            type="button"
+            className="scene-editor-button is-primary"
+            onClick={() => setPreviewMode(false)}
+          >
+            返回编辑
+          </button>
+        </div>
+        <div className="scene-editor-preview-scene">
+          <SpaceScene
+            debugAssets={false}
+            layoutDocument={document}
+          />
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="scene-editor" aria-label="场景编辑器 V1">
@@ -347,19 +510,20 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
         canUndo={canUndoSceneDocument(editorState)}
         canRedo={canRedoSceneDocument(editorState)}
         snapEnabled={editorState.snapEnabled}
+        canPreview
         editingLocked={editingLocked}
         isSavingToProject={isSavingToProject}
         onUndo={() => {
           if (saveLockRef.current) {
             return;
           }
-          updateEditorState((current) => undoSceneDocument(current));
+          updateEditorState((current) => undoSceneDocument(current), '已撤销上一步布局修改。');
         }}
         onRedo={() => {
           if (saveLockRef.current) {
             return;
           }
-          updateEditorState((current) => redoSceneDocument(current));
+          updateEditorState((current) => redoSceneDocument(current), '已重做上一步布局修改。');
         }}
         onToggleSnap={() => {
           if (saveLockRef.current) {
@@ -367,7 +531,13 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
           }
           updateEditorState((current) => (
             setSceneEditorSnapEnabled(current, !current.snapEnabled)
-          ));
+          ), editorState.snapEnabled ? '已关闭吸附。' : '已开启吸附。');
+        }}
+        onPreviewCurrentEffect={() => {
+          if (saveLockRef.current) {
+            return;
+          }
+          setPreviewMode(true);
         }}
         onRestoreDefault={handleRestoreDefault}
         onClearDraft={() => {

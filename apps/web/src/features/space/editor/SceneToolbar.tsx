@@ -2,11 +2,13 @@ interface SceneToolbarProps {
   readonly canUndo: boolean;
   readonly canRedo: boolean;
   readonly snapEnabled: boolean;
+  readonly canPreview?: boolean;
   readonly editingLocked?: boolean;
   readonly isSavingToProject?: boolean;
   readonly onUndo: () => void;
   readonly onRedo: () => void;
   readonly onToggleSnap: () => void;
+  readonly onPreviewCurrentEffect: () => void;
   readonly onRestoreDefault: () => void;
   readonly onClearDraft: () => void;
   readonly onExport: () => void;
@@ -17,11 +19,13 @@ export function SceneToolbar({
   canUndo,
   canRedo,
   snapEnabled,
+  canPreview = true,
   editingLocked = false,
   isSavingToProject = false,
   onUndo,
   onRedo,
   onToggleSnap,
+  onPreviewCurrentEffect,
   onRestoreDefault,
   onClearDraft,
   onExport,
@@ -54,6 +58,14 @@ export function SceneToolbar({
           disabled={editingLocked}
         >
           {snapEnabled ? '关闭吸附' : '开启吸附'}
+        </button>
+        <button
+          type="button"
+          className="scene-editor-button"
+          onClick={onPreviewCurrentEffect}
+          disabled={!canPreview || editingLocked}
+        >
+          预览当前效果
         </button>
       </div>
       <div className="scene-editor-toolbar-group">

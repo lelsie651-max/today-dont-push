@@ -1,13 +1,7 @@
-export interface SpaceWorkspaceMode {
-  readonly enableDevEditor: boolean;
-}
+export type SpaceWorkspaceMode = 'scene' | 'editor';
 
-export function resolveSpaceWorkspaceMode(
-  search: string,
-  isDevelopment: boolean,
-): SpaceWorkspaceMode {
-  const searchParams = new URLSearchParams(search);
-  return {
-    enableDevEditor: isDevelopment && searchParams.get('sceneEditor') === '1',
-  };
+export function resolveSpaceWorkspaceMode(options: {
+  readonly enableDevEditor: boolean;
+}): SpaceWorkspaceMode {
+  return options.enableDevEditor ? 'editor' : 'scene';
 }
