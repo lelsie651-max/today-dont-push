@@ -4,9 +4,9 @@ import {
   type AssetManifestEntry,
   assetManifest,
   defaultVisualState,
+  getSceneBackgroundAsset,
   getSceneItemLabel,
-  getSkyAsset,
-  getWeatherAsset,
+  getWeatherOverlayAsset,
   type SpaceVisualState,
 } from './asset-manifest';
 import {
@@ -74,7 +74,10 @@ const propEntries = [
     manifest: assetManifest.plant,
   },
 ] as const satisfies ReadonlyArray<{
-  readonly key: Exclude<SceneItemKey, 'windowViewport' | 'roomForeground'>;
+  readonly key: Exclude<
+    SceneItemKey,
+    'windowViewport' | 'sceneBackground' | 'weatherOverlay' | 'roomForeground'
+  >;
   readonly assetId: string;
   readonly manifest: AssetManifestEntry;
 }>;
@@ -100,7 +103,8 @@ export function SpaceScene({
   };
 
   const items = layoutDocument.items;
-  const viewport = items.windowViewport;
+  const sceneBackground = items.sceneBackground;
+  const weatherOverlay = items.weatherOverlay;
   const roomForeground = items.roomForeground;
 
   return (
@@ -115,34 +119,15 @@ export function SpaceScene({
 
         <div className="space-scene-stage" ref={stageRef}>
           <div
-            className="space-layer space-layer-sky"
-            data-testid="space-layer-sky"
+            className="space-layer space-layer-background"
+            data-testid="space-layer-background"
           >
-            {viewport.visible ? (
+            {sceneBackground.visible ? (
               <AssetSlot
-                assetId="sky"
-                manifest={getSkyAsset(resolvedVisualState.timeOfDay)}
+                assetId="scene-background"
+                manifest={getSceneBackgroundAsset(resolvedVisualState.timeOfDay)}
                 passive
-                style={toStageStyle({
-                  ...viewport,
-                  zIndex: 1,
-                })}
-              />
-            ) : null}
-          </div>
-          <div
-            className="space-layer space-layer-city"
-            data-testid="space-layer-city"
-          >
-            {viewport.visible ? (
-              <AssetSlot
-                assetId="window-city-skyline"
-                manifest={assetManifest.windowCitySkyline}
-                passive
-                style={toStageStyle({
-                  ...viewport,
-                  zIndex: 2,
-                })}
+                style={toStageStyle(sceneBackground)}
               />
             ) : null}
           </div>
@@ -150,15 +135,12 @@ export function SpaceScene({
             className="space-layer space-layer-weather"
             data-testid="space-layer-weather"
           >
-            {viewport.visible ? (
+            {weatherOverlay.visible ? (
               <AssetSlot
                 assetId="weather-overlay"
-                manifest={getWeatherAsset(resolvedVisualState.weather)}
+                manifest={getWeatherOverlayAsset(resolvedVisualState.weather)}
                 passive
-                style={toStageStyle({
-                  ...viewport,
-                  zIndex: 3,
-                })}
+                style={toStageStyle(weatherOverlay)}
               />
             ) : null}
           </div>
@@ -237,7 +219,9 @@ export function SpaceScene({
 
           {editorMode ? (
             <div className="space-editor-target-layer" data-testid="space-editor-target-layer">
-              {sceneLayoutEntries.map(([key]) => {
+              {sceneLayoutEntries
+                .filter(([key]) => key !== 'windowViewport')
+                .map(([key]) => {
                 const item = items[key];
                 if (!item.visible) {
                   return null;

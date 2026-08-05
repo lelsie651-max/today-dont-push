@@ -34,6 +34,12 @@ export interface SceneScreenRect {
   readonly height: number;
 }
 
+export interface SceneInteractionStartSnapshot {
+  readonly itemKey: SceneItemKey;
+  readonly rect: SceneLayoutRect;
+  readonly stageScale: number;
+}
+
 export function createSceneEditorState(
   document: SceneLayoutDocument = defaultSceneLayoutDocument,
 ): SceneEditorState {
@@ -243,6 +249,18 @@ export function screenRectToDesignRect(
   };
 }
 
+export function createSceneInteractionStartSnapshot(
+  document: SceneLayoutDocument,
+  itemKey: SceneItemKey,
+  stageScale: number,
+): SceneInteractionStartSnapshot {
+  return {
+    itemKey,
+    rect: document.items[itemKey],
+    stageScale,
+  };
+}
+
 export function previewDragInScreenSpace(
   state: SceneEditorState,
   itemKey: SceneItemKey,
@@ -262,6 +280,30 @@ export function previewDragInScreenSpace(
     {
       x: nextRect.x,
       y: nextRect.y,
+    },
+    { commit: false },
+  );
+}
+
+export function previewDragByScreenDelta(
+  state: SceneEditorState,
+  snapshot: SceneInteractionStartSnapshot,
+  screenDx: number,
+  screenDy: number,
+  stageScale: number,
+): SceneEditorState {
+  const document = getSceneEditorDocument(state);
+  const item = document.items[snapshot.itemKey];
+  if (item.locked) {
+    return state;
+  }
+
+  return updateSceneEditorItem(
+    state,
+    snapshot.itemKey,
+    {
+      x: snapshot.rect.x + screenDeltaToDesignDelta(screenDx, stageScale),
+      y: snapshot.rect.y + screenDeltaToDesignDelta(screenDy, stageScale),
     },
     { commit: false },
   );
@@ -289,6 +331,41 @@ export function previewResizeInScreenSpace(
       y: nextRect.y,
       width: nextRect.width,
       height: nextRect.height,
+    },
+    {
+      preferredDimension,
+      commit: false,
+    },
+  );
+}
+
+export function previewResizeByScreenDelta(
+  state: SceneEditorState,
+  snapshot: SceneInteractionStartSnapshot,
+  screenDx: number,
+  screenDy: number,
+  screenWidth: number,
+  screenHeight: number,
+  stageScale: number,
+  preferredDimension: 'width' | 'height',
+): SceneEditorState {
+  const document = getSceneEditorDocument(state);
+  const item = document.items[snapshot.itemKey];
+  if (item.locked) {
+    return state;
+  }
+  if (!Number.isFinite(stageScale) || stageScale <= 0) {
+    return state;
+  }
+
+  return updateSceneEditorItem(
+    state,
+    snapshot.itemKey,
+    {
+      x: snapshot.rect.x + screenDeltaToDesignDelta(screenDx, stageScale),
+      y: snapshot.rect.y + screenDeltaToDesignDelta(screenDy, stageScale),
+      width: Math.max(SCENE_MIN_SIZE, Math.round(screenWidth / stageScale)),
+      height: Math.max(SCENE_MIN_SIZE, Math.round(screenHeight / stageScale)),
     },
     {
       preferredDimension,

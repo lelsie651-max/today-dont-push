@@ -114,7 +114,8 @@ export function SceneInspector({
     { key: 'zIndex', label: 'zIndex' },
   ];
 
-  const geometryDisabled = selectedItem.locked || editingLocked;
+  const isGuideOnly = selectedItemKey === 'windowViewport';
+  const geometryDisabled = selectedItem.locked || editingLocked || isGuideOnly;
   const ratioHint = getSceneItemManifestAspectRatio(selectedItemKey);
 
   return (
@@ -175,7 +176,7 @@ export function SceneInspector({
           <input
             type="checkbox"
             checked={selectedItem.visible}
-            disabled={editingLocked}
+            disabled={editingLocked || isGuideOnly}
             onChange={() => onToggleFlag(selectedItemKey, 'visible')}
           />
           <span>visible</span>
@@ -184,7 +185,7 @@ export function SceneInspector({
           <input
             type="checkbox"
             checked={selectedItem.locked}
-            disabled={editingLocked}
+            disabled={editingLocked || isGuideOnly}
             onChange={() => onToggleFlag(selectedItemKey, 'locked')}
           />
           <span>locked</span>
@@ -207,6 +208,9 @@ export function SceneInspector({
         ) : null}
         {selectedItem.locked ? (
           <p className="scene-editor-hint">当前已锁定，画布拖拽、缩放、方向键和几何数值编辑都会失效。</p>
+        ) : null}
+        {isGuideOnly ? (
+          <p className="scene-editor-hint">windowViewport 现在只作为 Debug Guide 保留，不参与基础背景渲染，也不作为普通可编辑物件。</p>
         ) : null}
       </div>
     </section>

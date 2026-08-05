@@ -7,7 +7,9 @@
 | 槽位 | x | y | width | height | zIndex |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | windowViewport | 445 | 10 | 940 | 520 | 1 |
-| roomForeground | 0 | 0 | 1440 | 900 | 4 |
+| sceneBackground | 0 | 0 | 1440 | 900 | 1 |
+| weatherOverlay | 0 | 0 | 1440 | 900 | 2 |
+| roomForeground | 0 | 0 | 1440 | 900 | 3 |
 | planBoard | 89 | 108 | 317 | 247 | 6 |
 | deskLamp | 734 | 496 | 219 | 323 | 7 |
 | radio | 238 | 631 | 259 | 179 | 7 |
@@ -20,6 +22,8 @@
 ## 2. 每个槽位 x/y/width/height
 
 - `windowViewport`: `445 / 10 / 940 / 520`
+- `sceneBackground`: `0 / 0 / 1440 / 900`
+- `weatherOverlay`: `0 / 0 / 1440 / 900`
 - `roomForeground`: `0 / 0 / 1440 / 900`
 - `planBoard`: `89 / 108 / 317 / 247`
 - `deskLamp`: `734 / 496 / 219 / 323`
@@ -54,22 +58,28 @@
 
 - `593 / 13 / 1254 / 694`
 
-## 5. 窗洞必须完全透明
+## 5. 基础层统一为全舞台 1920x1200
+
+- `sceneBackground`、`weatherOverlay`、`roomForeground` 都以 `1920 x 1200` 输出。
+- 前端会把三层统一映射到 `1440 x 900` 设计舞台。
+- `windowViewport` 只保留为 Guide，不再作为天空/天气裁切容器。
+
+## 6. 窗洞必须完全透明
 
 - `roomForeground` 的窗洞区域必须是完全透明，不能留半透明底色、磨砂蒙版或烘焙背景。
-- 天空、城市和天气层会从该透明窗洞透出。
+- 全舞台背景和天气层会从该透明窗洞透出。
 
-## 6. 室内前景不得包含独立 props
+## 7. 室内前景不得包含独立 props
 
 - `roomForeground` 只承载室内静态结构和桌面前景。
 - 不得把 `planBoard`、`deskLamp`、`radio`、`focusClock`、`tarotEntry`、`magazine`、`reviewPrinter`、`plant` 画进室内前景源图。
 
-## 7. 独立物件必须透明 PNG，阴影不得裁切
+## 8. 独立物件必须透明 PNG，阴影不得裁切
 
 - 所有独立物件必须输出透明 PNG。
 - 物件自带阴影、发光或外扩效果时，画布必须预留足够安全边距，避免裁切。
 
-## 8. 图片中不得画死动态文字
+## 9. 图片中不得画死动态文字
 
 - 不得在图片里写死日期、任务、时间、曲名、天气数值、状态文案或任何未来需要程序驱动的动态文字。
 - 未来动态信息必须留给前端层叠加，而不是烘焙进资源。

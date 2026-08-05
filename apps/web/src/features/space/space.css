@@ -144,6 +144,7 @@
   display: block;
   opacity: 0;
   transition: opacity 180ms ease;
+  pointer-events: none;
   user-select: none;
 }
 
@@ -183,23 +184,16 @@
   color: #8a7358;
 }
 
-[data-asset-id='sky'] .asset-slot-surface,
-[data-asset-id='window-city-skyline'] .asset-slot-surface,
+[data-asset-id='scene-background'] .asset-slot-surface,
 [data-asset-id='weather-overlay'] .asset-slot-surface,
 [data-asset-id='room-foreground'] .asset-slot-surface {
   border-radius: 0;
 }
 
-[data-asset-id='sky'] .asset-slot-surface {
+[data-asset-id='scene-background'] .asset-slot-surface {
   background: linear-gradient(180deg, rgba(201, 222, 240, 0.96), rgba(170, 195, 220, 0.96));
   border-width: 0;
   box-shadow: none;
-}
-
-[data-asset-id='window-city-skyline'] .asset-slot-surface {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(56, 72, 88, 0.25)),
-    linear-gradient(180deg, rgba(206, 214, 222, 0), rgba(118, 131, 144, 0.36));
 }
 
 [data-asset-id='weather-overlay'] .asset-slot-surface {

@@ -13,10 +13,9 @@ export type TimeOfDay = 'morning' | 'daytime' | 'evening' | 'night';
 export type WeatherKind = 'clear' | 'cloudy' | 'rain' | 'storm';
 
 interface SpaceAssetManifest {
+  readonly sceneBackground: Record<TimeOfDay, AssetManifestEntry>;
+  readonly weatherOverlay: Record<WeatherKind, AssetManifestEntry>;
   readonly roomForeground: AssetManifestEntry;
-  readonly windowCitySkyline: AssetManifestEntry;
-  readonly sky: Record<TimeOfDay, AssetManifestEntry>;
-  readonly weather: Record<WeatherKind, AssetManifestEntry>;
   readonly planBoard: AssetManifestEntry;
   readonly deskLamp: AssetManifestEntry;
   readonly radio: AssetManifestEntry;
@@ -28,6 +27,74 @@ interface SpaceAssetManifest {
 }
 
 export const assetManifest = {
+  sceneBackground: {
+    morning: {
+      label: 'scene background',
+      path: '/assets/scene/background/scene-background-morning.webp',
+      width: 1920,
+      height: 1200,
+      role: 'decorative',
+      fit: 'cover',
+    },
+    daytime: {
+      label: 'scene background',
+      path: '/assets/scene/background/scene-background-daytime.webp',
+      width: 1920,
+      height: 1200,
+      role: 'decorative',
+      fit: 'cover',
+    },
+    evening: {
+      label: 'scene background',
+      path: '/assets/scene/background/scene-background-evening.webp',
+      width: 1920,
+      height: 1200,
+      role: 'decorative',
+      fit: 'cover',
+    },
+    night: {
+      label: 'scene background',
+      path: '/assets/scene/background/scene-background-night.webp',
+      width: 1920,
+      height: 1200,
+      role: 'decorative',
+      fit: 'cover',
+    },
+  } satisfies Record<TimeOfDay, AssetManifestEntry>,
+  weatherOverlay: {
+    clear: {
+      label: 'weather overlay',
+      path: '/assets/scene/weather/weather-clear.png',
+      width: 1920,
+      height: 1200,
+      role: 'decorative',
+      fit: 'cover',
+    },
+    cloudy: {
+      label: 'weather overlay',
+      path: '/assets/scene/weather/weather-cloudy.png',
+      width: 1920,
+      height: 1200,
+      role: 'decorative',
+      fit: 'cover',
+    },
+    rain: {
+      label: 'weather overlay',
+      path: '/assets/scene/weather/weather-rain.png',
+      width: 1920,
+      height: 1200,
+      role: 'decorative',
+      fit: 'cover',
+    },
+    storm: {
+      label: 'weather overlay',
+      path: '/assets/scene/weather/weather-storm.png',
+      width: 1920,
+      height: 1200,
+      role: 'decorative',
+      fit: 'cover',
+    },
+  } satisfies Record<WeatherKind, AssetManifestEntry>,
   roomForeground: {
     label: 'room foreground',
     path: '/assets/scene/scene-room-foreground.png',
@@ -35,82 +102,6 @@ export const assetManifest = {
     height: 1200,
     role: 'decorative',
     fit: 'cover',
-  },
-  windowCitySkyline: {
-    label: 'window city skyline',
-    path: '/assets/scene/window/window-city-skyline.png',
-    width: 960,
-    height: 600,
-    role: 'decorative',
-    fit: 'cover',
-  },
-  sky: {
-    morning: {
-      label: 'sky',
-      path: '/assets/scene/window/sky-morning.webp',
-      width: 960,
-      height: 600,
-      role: 'decorative',
-      fit: 'cover',
-    },
-    daytime: {
-      label: 'sky',
-      path: '/assets/scene/window/sky-daytime.webp',
-      width: 960,
-      height: 600,
-      role: 'decorative',
-      fit: 'cover',
-    },
-    evening: {
-      label: 'sky',
-      path: '/assets/scene/window/sky-evening.webp',
-      width: 960,
-      height: 600,
-      role: 'decorative',
-      fit: 'cover',
-    },
-    night: {
-      label: 'sky',
-      path: '/assets/scene/window/sky-night.webp',
-      width: 960,
-      height: 600,
-      role: 'decorative',
-      fit: 'cover',
-    },
-  } satisfies Record<TimeOfDay, AssetManifestEntry>,
-  weather: {
-    clear: {
-      label: 'weather overlay',
-      path: '/assets/scene/window/weather-clear.png',
-      width: 960,
-      height: 600,
-      role: 'decorative',
-      fit: 'cover',
-    },
-    cloudy: {
-      label: 'weather overlay',
-      path: '/assets/scene/window/weather-cloudy.png',
-      width: 960,
-      height: 600,
-      role: 'decorative',
-      fit: 'cover',
-    },
-    rain: {
-      label: 'weather overlay',
-      path: '/assets/scene/window/weather-rain.png',
-      width: 960,
-      height: 600,
-      role: 'decorative',
-      fit: 'cover',
-    },
-    storm: {
-      label: 'weather overlay',
-      path: '/assets/scene/window/weather-storm.png',
-      width: 960,
-      height: 600,
-      role: 'decorative',
-      fit: 'cover',
-    },
   },
   planBoard: {
     label: 'plan board',
@@ -178,7 +169,7 @@ export const assetManifest = {
   },
 } as const satisfies SpaceAssetManifest;
 
-export type AssetManifestKey = keyof Omit<typeof assetManifest, 'sky' | 'weather'>;
+export type AssetManifestKey = keyof Omit<typeof assetManifest, 'sceneBackground' | 'weatherOverlay'>;
 
 export interface SpaceVisualState {
   readonly timeOfDay: TimeOfDay;
@@ -191,6 +182,8 @@ export const defaultVisualState: SpaceVisualState = {
 };
 
 export const sceneItemManifestMap: Partial<Record<SceneItemKey, AssetManifestEntry>> = {
+  sceneBackground: assetManifest.sceneBackground.daytime,
+  weatherOverlay: assetManifest.weatherOverlay.clear,
   roomForeground: assetManifest.roomForeground,
   planBoard: assetManifest.planBoard,
   deskLamp: assetManifest.deskLamp,
@@ -202,17 +195,17 @@ export const sceneItemManifestMap: Partial<Record<SceneItemKey, AssetManifestEnt
   plant: assetManifest.plant,
 };
 
-export function getSkyAsset(timeOfDay: TimeOfDay): AssetManifestEntry {
-  return assetManifest.sky[timeOfDay];
+export function getSceneBackgroundAsset(timeOfDay: TimeOfDay): AssetManifestEntry {
+  return assetManifest.sceneBackground[timeOfDay];
 }
 
-export function getWeatherAsset(weather: WeatherKind): AssetManifestEntry {
-  return assetManifest.weather[weather];
+export function getWeatherOverlayAsset(weather: WeatherKind): AssetManifestEntry {
+  return assetManifest.weatherOverlay[weather];
 }
 
 export function getSceneItemLabel(itemKey: SceneItemKey): string {
   if (itemKey === 'windowViewport') {
-    return 'window viewport';
+    return 'window viewport guide';
   }
   return sceneItemManifestMap[itemKey]?.label ?? itemKey;
 }

@@ -496,7 +496,8 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'magazine' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'review printer' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'room foreground' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'window city skyline' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'scene background' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'weather overlay' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'desk lamp' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'plant' })).not.toBeInTheDocument();
   });

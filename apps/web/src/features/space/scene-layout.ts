@@ -7,6 +7,8 @@ export const SCENE_DESIGN_HEIGHT = 900;
 export const SCENE_MIN_SIZE = 20;
 export const SCENE_ITEM_ORDER = [
   'windowViewport',
+  'sceneBackground',
+  'weatherOverlay',
   'roomForeground',
   'planBoard',
   'deskLamp',

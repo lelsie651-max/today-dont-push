@@ -27,6 +27,7 @@ export function SceneHierarchy({
       <ul className="scene-editor-hierarchy-list">
         {Object.entries(document.items).map(([key, item]) => {
           const sceneItemKey = key as SceneItemKey;
+          const isGuideOnly = sceneItemKey === 'windowViewport';
           return (
             <li key={sceneItemKey}>
               <div
@@ -49,7 +50,7 @@ export function SceneHierarchy({
                     className="scene-editor-chip"
                     onClick={() => onToggleVisible(sceneItemKey)}
                     aria-pressed={item.visible}
-                    disabled={editingLocked}
+                    disabled={editingLocked || isGuideOnly}
                   >
                     {item.visible ? '显示' : '隐藏'}
                   </button>
@@ -58,7 +59,7 @@ export function SceneHierarchy({
                     className="scene-editor-chip"
                     onClick={() => onToggleLocked(sceneItemKey)}
                     aria-pressed={item.locked}
-                    disabled={editingLocked}
+                    disabled={editingLocked || isGuideOnly}
                   >
                     {item.locked ? '已锁定' : '未锁定'}
                   </button>

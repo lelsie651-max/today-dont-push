@@ -1,40 +1,40 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { AssetSlot } from './AssetSlot';
-import { assetManifest, getSkyAsset } from './asset-manifest';
+import { assetManifest, getSceneBackgroundAsset } from './asset-manifest';
 
 describe('AssetSlot', () => {
   it('初始渲染时就输出 img', () => {
     const { container } = render(
       <AssetSlot
-        assetId="sky"
-        manifest={getSkyAsset('daytime')}
+        assetId="scene-background"
+        manifest={getSceneBackgroundAsset('daytime')}
         passive
       />,
     );
 
     const image = container.querySelector('img');
     expect(image).not.toBeNull();
-    expect(image).toHaveAttribute('src', '/assets/scene/window/sky-daytime.webp');
+    expect(image).toHaveAttribute('src', '/assets/scene/background/scene-background-daytime.webp');
   });
 
   it('根元素具有 manifest 对应的 aspect-ratio', () => {
     const { container } = render(
       <AssetSlot
-        assetId="sky"
-        manifest={getSkyAsset('daytime')}
+        assetId="scene-background"
+        manifest={getSceneBackgroundAsset('daytime')}
         passive
       />,
     );
 
-    expect(container.firstElementChild).toHaveStyle({ aspectRatio: '960 / 600' });
+    expect(container.firstElementChild).toHaveStyle({ aspectRatio: '1920 / 1200' });
   });
 
   it('图片 error 后显示占位内容', () => {
     const { container } = render(
       <AssetSlot
-        assetId="sky"
-        manifest={getSkyAsset('daytime')}
+        assetId="scene-background"
+        manifest={getSceneBackgroundAsset('daytime')}
         passive
       />,
     );
@@ -45,16 +45,16 @@ describe('AssetSlot', () => {
     }
     fireEvent.error(image);
 
-    expect(screen.getByText('sky')).toBeInTheDocument();
-    expect(screen.getByText('960 x 600')).toBeInTheDocument();
-    expect(container.firstElementChild).toHaveStyle({ aspectRatio: '960 / 600' });
+    expect(screen.getByText('scene background')).toBeInTheDocument();
+    expect(screen.getByText('1920 x 1200')).toBeInTheDocument();
+    expect(container.firstElementChild).toHaveStyle({ aspectRatio: '1920 / 1200' });
   });
 
   it('图片成功加载后不显示占位文字', () => {
     const { container } = render(
       <AssetSlot
-        assetId="sky"
-        manifest={getSkyAsset('daytime')}
+        assetId="scene-background"
+        manifest={getSceneBackgroundAsset('daytime')}
         passive
       />,
     );
@@ -65,9 +65,9 @@ describe('AssetSlot', () => {
     }
     fireEvent.load(image);
 
-    expect(screen.queryByText('sky')).not.toBeInTheDocument();
-    expect(screen.queryByText('960 x 600')).not.toBeInTheDocument();
-    expect(container.firstElementChild).toHaveStyle({ aspectRatio: '960 / 600' });
+    expect(screen.queryByText('scene background')).not.toBeInTheDocument();
+    expect(screen.queryByText('1920 x 1200')).not.toBeInTheDocument();
+    expect(container.firstElementChild).toHaveStyle({ aspectRatio: '1920 / 1200' });
   });
 
   it('decorative 资产不是 button', () => {

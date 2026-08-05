@@ -17,6 +17,26 @@ import {
 
 describe('sceneLayout', () => {
   it('默认 JSON 与迁移前坐标完全一致', () => {
+    expect(defaultSceneLayoutDocument.items.sceneBackground).toMatchObject({
+      x: 0,
+      y: 0,
+      width: 1440,
+      height: 900,
+      zIndex: 1,
+      visible: true,
+      locked: true,
+      keepRatio: true,
+    });
+    expect(defaultSceneLayoutDocument.items.weatherOverlay).toMatchObject({
+      x: 0,
+      y: 0,
+      width: 1440,
+      height: 900,
+      zIndex: 2,
+      visible: true,
+      locked: true,
+      keepRatio: true,
+    });
     expect(defaultSceneLayoutDocument.items.radio).toMatchObject({
       x: 238,
       y: 631,
@@ -78,6 +98,23 @@ describe('sceneLayout', () => {
     });
   });
 
+  it('sceneBackground 与 weatherOverlay 也覆盖完整舞台', () => {
+    expect(sceneLayout.sceneBackground).toMatchObject({
+      x: 0,
+      y: 0,
+      width: 1440,
+      height: 900,
+      locked: true,
+    });
+    expect(sceneLayout.weatherOverlay).toMatchObject({
+      x: 0,
+      y: 0,
+      width: 1440,
+      height: 900,
+      locked: true,
+    });
+  });
+
   it('非法布局会被校验器拒绝', () => {
     const result = validateSceneLayoutDocument({
       ...sceneLayoutJson,
@@ -135,6 +172,7 @@ describe('sceneLayout', () => {
     expect(serialized).toContain('"version": 1');
     expect(serialized.indexOf('"designSpace"')).toBeLessThan(serialized.indexOf('"items"'));
     expect(serialized.indexOf('"windowViewport"')).toBeLessThan(serialized.indexOf('"roomForeground"'));
+    expect(serialized.indexOf('"sceneBackground"')).toBeLessThan(serialized.indexOf('"weatherOverlay"'));
   });
 
   it('CSS 中不再残留 .slot-* 的位置和 z-index 硬编码', () => {

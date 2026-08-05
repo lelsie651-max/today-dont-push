@@ -40,7 +40,9 @@ describe('SceneEditor', () => {
     render(<SceneEditor />);
 
     expect(screen.getByRole('button', { name: '在层级中选择 radio' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '在层级中选择 window viewport' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '在层级中选择 window viewport guide' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '在层级中选择 scene background' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '在层级中选择 weather overlay' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: '在层级中选择 radio' }));
     expect(screen.getByText('radio', { selector: 'code' })).toBeInTheDocument();
@@ -61,6 +63,23 @@ describe('SceneEditor', () => {
     await user.click(screen.getByRole('button', { name: '在层级中选择 room foreground' }));
     expect(screen.getByLabelText('x')).toBeDisabled();
     expect(screen.getByLabelText('width')).toBeDisabled();
+  });
+
+  it('基础层默认锁定，但解锁后可以修改 width/height', async () => {
+    const user = userEvent.setup();
+    render(<SceneEditor />);
+
+    await user.click(screen.getByRole('button', { name: '在层级中选择 scene background' }));
+    expect(screen.getByLabelText('width')).toBeDisabled();
+
+    await user.click(screen.getByLabelText('locked'));
+    expect(screen.getByLabelText('width')).toBeEnabled();
+
+    fireEvent.change(screen.getByLabelText('width'), { target: { value: '1200' } });
+    fireEvent.change(screen.getByLabelText('height'), { target: { value: '750' } });
+
+    expect(screen.getByLabelText('width')).toHaveValue('1200');
+    expect(screen.getByLabelText('height')).toHaveValue('750');
   });
 
   it('visible 切换会影响场景显示', async () => {

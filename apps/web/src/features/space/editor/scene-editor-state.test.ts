@@ -4,6 +4,7 @@ import {
   updateSceneLayoutItem,
 } from '../scene-layout';
 import {
+  createSceneInteractionStartSnapshot,
   canUndoSceneDocument,
   createSceneEditorState,
   finishSceneInteraction,
@@ -11,7 +12,9 @@ import {
   getStageScale,
   moveByScreenDelta,
   nudgeSceneEditorItem,
+  previewDragByScreenDelta,
   previewDragInScreenSpace,
+  previewResizeByScreenDelta,
   previewResizeInScreenSpace,
   screenRectToDesignRect,
   updateSceneEditorItem,
@@ -166,6 +169,65 @@ describe('scene-editor-state', () => {
     expect(committed.history.past).toHaveLength(1);
   });
 
+  it('拖拽使用起始坐标与相对 delta，而不是绝对 left/top', () => {
+    const state = createSceneEditorState(defaultSceneLayoutDocument);
+    const snapshot = createSceneInteractionStartSnapshot(
+      defaultSceneLayoutDocument,
+      'radio',
+      0.5,
+    );
+    const preview = previewDragByScreenDelta(state, snapshot, 10, 20, 0.5);
+
+    expect(getSceneEditorDocument(preview).items.radio).toMatchObject({
+      x: 258,
+      y: 671,
+    });
+  });
+
+  it('Moveable 绝对 left/top 失真时，只要 dist 正确就不会跳到 0/0', () => {
+    const state = createSceneEditorState(defaultSceneLayoutDocument);
+    const snapshot = createSceneInteractionStartSnapshot(
+      defaultSceneLayoutDocument,
+      'radio',
+      0.6513888888888889,
+    );
+    const brokenAbsolutePreview = previewDragInScreenSpace(
+      state,
+      'radio',
+      { left: -168.687, top: -116.828, width: 168.703, height: 116.594 },
+      0.6513888888888889,
+    );
+    const relativePreview = previewDragByScreenDelta(
+      state,
+      snapshot,
+      10,
+      0,
+      0.6513888888888889,
+    );
+
+    expect(getSceneEditorDocument(brokenAbsolutePreview).items.radio).toMatchObject({
+      x: 0,
+      y: 0,
+    });
+    expect(getSceneEditorDocument(relativePreview).items.radio).toMatchObject({
+      x: 253,
+      y: 631,
+    });
+  });
+
+  it('连续 onDrag 都基于同一起始快照，不会重复累计 delta', () => {
+    const state = createSceneEditorState(defaultSceneLayoutDocument);
+    const snapshot = createSceneInteractionStartSnapshot(
+      defaultSceneLayoutDocument,
+      'radio',
+      0.5,
+    );
+    const previewA = previewDragByScreenDelta(state, snapshot, 10, 0, 0.5);
+    const previewB = previewDragByScreenDelta(previewA, snapshot, 20, 0, 0.5);
+
+    expect(getSceneEditorDocument(previewB).items.radio.x).toBe(278);
+  });
+
   it('预览缩放会按设计空间尺寸更新', () => {
     const state = createSceneEditorState(defaultSceneLayoutDocument);
     const preview = previewResizeInScreenSpace(
@@ -178,6 +240,32 @@ describe('scene-editor-state', () => {
 
     expect(getSceneEditorDocument(preview).items.radio.width).toBe(520);
     expect(getSceneEditorDocument(preview).items.radio.height).toBe(360);
+  });
+
+  it('resize 使用起始快照与相对信息，不依赖绝对 left/top', () => {
+    const state = createSceneEditorState(defaultSceneLayoutDocument);
+    const snapshot = createSceneInteractionStartSnapshot(
+      defaultSceneLayoutDocument,
+      'radio',
+      0.5,
+    );
+    const preview = previewResizeByScreenDelta(
+      state,
+      snapshot,
+      10,
+      20,
+      260,
+      180,
+      0.5,
+      'width',
+    );
+
+    expect(getSceneEditorDocument(preview).items.radio).toMatchObject({
+      x: 258,
+      y: 540,
+      width: 520,
+      height: 360,
+    });
   });
 
   it('舞台缩放比例按 clientWidth / 1440 计算', () => {

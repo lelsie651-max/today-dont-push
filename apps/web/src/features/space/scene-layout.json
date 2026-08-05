@@ -15,12 +15,32 @@
       "locked": true,
       "keepRatio": true
     },
+    "sceneBackground": {
+      "x": 0,
+      "y": 0,
+      "width": 1440,
+      "height": 900,
+      "zIndex": 1,
+      "visible": true,
+      "locked": true,
+      "keepRatio": true
+    },
+    "weatherOverlay": {
+      "x": 0,
+      "y": 0,
+      "width": 1440,
+      "height": 900,
+      "zIndex": 2,
+      "visible": true,
+      "locked": true,
+      "keepRatio": true
+    },
     "roomForeground": {
       "x": 0,
       "y": 0,
       "width": 1440,
       "height": 900,
-      "zIndex": 4,
+      "zIndex": 3,
       "visible": true,
       "locked": true,
       "keepRatio": true
