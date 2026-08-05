@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import App from './App';
 import { resolveAppViewState } from './app-view-state';
@@ -64,5 +65,24 @@ describe('App scene editor entry', () => {
     expect(screen.queryByRole('navigation', { name: '页面切换' })).not.toBeInTheDocument();
     expect(await screen.findByRole('heading', { name: '场景编辑器' })).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: '预览当前效果' })).toBeInTheDocument();
+  });
+
+  it('sceneEditor 预览模式会隐藏完整编辑器外壳，返回后恢复', async () => {
+    const user = userEvent.setup();
+    window.history.replaceState({}, '', '/?view=space&sceneEditor=1');
+    render(<App />);
+
+    await user.click(await screen.findByRole('button', { name: '预览当前效果' }));
+
+    expect(screen.queryByText('Scene Editor Workspace')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '场景编辑器' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: '页面切换' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '返回编辑' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: '窗边桌面空间' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '返回编辑' }));
+
+    expect(await screen.findByText('Scene Editor Workspace')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '场景编辑器' })).toBeInTheDocument();
   });
 });

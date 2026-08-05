@@ -254,7 +254,9 @@ describe('SceneEditor', () => {
     fireEvent.click(screen.getByRole('button', { name: '清除本地草稿' }));
     expect(window.localStorage.getItem(SCENE_LAYOUT_DRAFT_STORAGE_KEY)).toBeNull();
     expect(screen.getByLabelText('x')).toHaveValue('320');
-    expect(screen.getByText('本地草稿已清除，刷新后会回到默认布局。')).toBeInTheDocument();
+    expect(
+      screen.getByText('本地草稿已清除；当前画布未改变，继续修改后会重新自动保存。'),
+    ).toBeInTheDocument();
   });
 
   it('无效草稿不会使页面崩溃', () => {
@@ -312,6 +314,35 @@ describe('SceneEditor', () => {
     await user.click(screen.getByRole('button', { name: '清除本地草稿' }));
 
     expect(screen.getByText('浏览器当前拒绝删除本地草稿，未能清除本地草稿。')).toBeInTheDocument();
+  });
+
+  it('修改后不足300ms立即清除草稿，旧定时器不会把草稿重新写回；再次修改后自动保存恢复', () => {
+    vi.useFakeTimers();
+    render(<SceneEditor />);
+
+    fireEvent.click(screen.getByRole('button', { name: '在层级中选择 radio' }));
+    fireEvent.change(screen.getByLabelText('x'), { target: { value: '320' } });
+
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '清除本地草稿' }));
+    expect(window.localStorage.getItem(SCENE_LAYOUT_DRAFT_STORAGE_KEY)).toBeNull();
+    expect(screen.getByLabelText('x')).toHaveValue('320');
+
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+
+    expect(window.localStorage.getItem(SCENE_LAYOUT_DRAFT_STORAGE_KEY)).toBeNull();
+
+    fireEvent.change(screen.getByLabelText('x'), { target: { value: '330' } });
+    act(() => {
+      vi.advanceTimersByTime(350);
+    });
+
+    expect(window.localStorage.getItem(SCENE_LAYOUT_DRAFT_STORAGE_KEY)).toContain('"x": 330');
   });
 
   it('隐藏已选物件后重新显示，控制框会立即恢复', async () => {
@@ -594,6 +625,45 @@ describe('SceneEditor', () => {
     expect(screen.getByText('已保存到scene-layout.json，Git现在可以看到修改。')).toBeInTheDocument();
     expect(screen.getByText('radio', { selector: 'code' })).toBeInTheDocument();
     expect(screen.getByLabelText('x')).toHaveValue('320');
+  });
+
+  it('保存成功后重新挂载并等待1秒，不会重新创建本地草稿；再次修改后自动保存恢复', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: 'ok',
+        message: '已保存到scene-layout.json，Git现在可以看到修改。',
+      }),
+    })) as unknown as typeof fetch);
+
+    const { unmount } = render(<SceneEditor />);
+    fireEvent.click(screen.getByRole('button', { name: '在层级中选择 radio' }));
+    fireEvent.change(screen.getByLabelText('x'), { target: { value: '320' } });
+
+    fireEvent.click(screen.getByRole('button', { name: '保存到工程' }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByText('已保存到scene-layout.json，Git现在可以看到修改。')).toBeInTheDocument();
+    expect(window.localStorage.getItem(SCENE_LAYOUT_DRAFT_STORAGE_KEY)).toBeNull();
+
+    unmount();
+    render(<SceneEditor />);
+
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+
+    expect(window.localStorage.getItem(SCENE_LAYOUT_DRAFT_STORAGE_KEY)).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: '在层级中选择 radio' }));
+    fireEvent.change(screen.getByLabelText('x'), { target: { value: '330' } });
+    act(() => {
+      vi.advanceTimersByTime(350);
+    });
+
+    expect(window.localStorage.getItem(SCENE_LAYOUT_DRAFT_STORAGE_KEY)).toContain('"x": 330');
   });
 
   it('预览当前效果会进入 previewMode 并隐藏编辑 UI', async () => {

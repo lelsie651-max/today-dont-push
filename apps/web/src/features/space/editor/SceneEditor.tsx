@@ -42,6 +42,7 @@ import './scene-editor.css';
 
 interface SceneEditorProps {
   readonly debugAssets?: boolean;
+  readonly onPreviewModeChange?: (previewMode: boolean) => void;
 }
 
 type SceneEditorDocumentState = ReturnType<typeof createSceneEditorState>;
@@ -89,7 +90,11 @@ function toValidDocument(value: unknown) {
 }
 
 function loadSceneEditorTransientSession():
-  | { readonly editorState: SceneEditorState; readonly notice: string | null }
+  | {
+      readonly editorState: SceneEditorState;
+      readonly notice: string | null;
+      readonly lastProjectSavedDocument: ReturnType<typeof toValidDocument>;
+    }
   | null {
   try {
     const raw = window.sessionStorage.getItem(SCENE_EDITOR_TRANSIENT_SESSION_KEY);
@@ -107,6 +112,7 @@ function loadSceneEditorTransientSession():
       readonly selectedItemKey?: unknown;
       readonly snapEnabled?: unknown;
       readonly notice?: unknown;
+      readonly lastProjectSavedDocument?: unknown;
     };
 
     const present = toValidDocument(parsed.history?.present);
@@ -139,6 +145,7 @@ function loadSceneEditorTransientSession():
         interactionDocument: null,
       },
       notice: typeof parsed.notice === 'string' ? parsed.notice : null,
+      lastProjectSavedDocument: toValidDocument(parsed.lastProjectSavedDocument),
     };
   } catch {
     return null;
@@ -148,6 +155,7 @@ function loadSceneEditorTransientSession():
 function saveSceneEditorTransientSession(
   editorState: SceneEditorState,
   notice: string | null,
+  lastProjectSavedDocument: ReturnType<typeof toValidDocument>,
 ) {
   try {
     window.sessionStorage.setItem(
@@ -157,6 +165,7 @@ function saveSceneEditorTransientSession(
         selectedItemKey: editorState.selectedItemKey,
         snapEnabled: editorState.snapEnabled,
         notice,
+        lastProjectSavedDocument,
       }),
     );
   } catch {
@@ -164,8 +173,11 @@ function saveSceneEditorTransientSession(
   }
 }
 
-export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
-  const [{ initialEditorState, initialNotice }] = useState(() => {
+export function SceneEditor({
+  debugAssets = false,
+  onPreviewModeChange,
+}: SceneEditorProps) {
+  const [{ initialEditorState, initialNotice, initialLastProjectSavedDocument }] = useState(() => {
     const initial = getInitialSceneLayoutDocument();
     const transientSession =
       typeof window !== 'undefined' ? loadSceneEditorTransientSession() : null;
@@ -174,6 +186,7 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
     return {
       initialEditorState: transientSession?.editorState ?? createSceneEditorState(initial.document),
       initialNotice: transientSession?.notice ?? transientNotice ?? initial.notice,
+      initialLastProjectSavedDocument: transientSession?.lastProjectSavedDocument ?? null,
     };
   });
   const [editorState, setEditorState] = useState<SceneEditorDocumentState>(initialEditorState);
@@ -192,7 +205,9 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
   const saveLockRef = useRef(false);
   const latestCanvasDocumentRef = useRef(getSceneEditorDocument(editorState));
   const latestCommittedDocumentRef = useRef(editorState.history.present);
-  const lastProjectSavedDocumentRef = useRef<ReturnType<typeof getSceneEditorDocument> | null>(null);
+  const lastProjectSavedDocumentRef = useRef<ReturnType<typeof getSceneEditorDocument> | null>(
+    initialLastProjectSavedDocument,
+  );
   const [isSavingToProject, setIsSavingToProject] = useState(false);
 
   const document = getSceneEditorDocument(editorState);
@@ -247,6 +262,13 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
     const nextEditorState = transform(editorStateRef.current);
     commitEditorState(nextEditorState, nextNotice);
   }, [commitEditorState]);
+
+  useEffect(() => {
+    onPreviewModeChange?.(previewMode);
+    return () => {
+      onPreviewModeChange?.(false);
+    };
+  }, [onPreviewModeChange, previewMode]);
 
   useEffect(() => {
     clearAutosaveTimer();
@@ -473,7 +495,7 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
         clearResult.ok
           ? saveResult.message
           : `${saveResult.message} 但未能清除本地草稿：${clearResult.message}`;
-      saveSceneEditorTransientSession(editorStateRef.current, successMessage);
+      saveSceneEditorTransientSession(editorStateRef.current, successMessage, saveSnapshot);
       saveSceneEditorTransientNotice(successMessage);
       setNotice(successMessage);
     } finally {
@@ -544,10 +566,12 @@ export function SceneEditor({ debugAssets = false }: SceneEditorProps) {
           if (saveLockRef.current) {
             return;
           }
+          autosaveGenerationRef.current += 1;
+          clearAutosaveTimer();
           const clearResult = clearSceneLayoutDraft();
           setNotice(
             clearResult.ok
-              ? '本地草稿已清除，刷新后会回到默认布局。'
+              ? '本地草稿已清除；当前画布未改变，继续修改后会重新自动保存。'
               : clearResult.message,
           );
         }}

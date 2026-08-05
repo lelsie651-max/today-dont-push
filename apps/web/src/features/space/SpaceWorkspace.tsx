@@ -1,4 +1,4 @@
-import { Component, Suspense, lazy, type ReactNode } from 'react';
+import { Component, Suspense, lazy, type ReactNode, useState } from 'react';
 import './space.css';
 import { SpaceScene } from './SpaceScene';
 import type { SpaceWorkspaceMode } from './space-workspace-mode';
@@ -45,18 +45,21 @@ export function SpaceWorkspace({
   mode = 'scene',
 }: SpaceWorkspaceProps) {
   const isEditorMode = mode === 'editor';
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
 
   return (
     <main className={`space-workspace ${isEditorMode ? 'is-editor-mode' : ''}`}>
       <div className="space-workspace-shell">
         {isEditorMode ? (
-          <header className="space-workspace-editor-header">
-            <div>
-              <p className="space-workspace-editor-eyebrow">Scene Editor Workspace</p>
-              <h1>场景编辑器</h1>
-              <p>当前是独立编辑模式，不显示会丢失 `sceneEditor=1` 的业务导航。</p>
-            </div>
-          </header>
+          isPreviewMode ? null : (
+            <header className="space-workspace-editor-header">
+              <div>
+                <p className="space-workspace-editor-eyebrow">Scene Editor Workspace</p>
+                <h1>场景编辑器</h1>
+                <p>当前是独立编辑模式，不显示会丢失 `sceneEditor=1` 的业务导航。</p>
+              </div>
+            </header>
+          )
         ) : (
           <header className="space-workspace-header">
             <div>
@@ -74,7 +77,10 @@ export function SpaceWorkspace({
                 </div>
               }
             >
-              <DevEditorPanel debugAssets={debugAssets} />
+              <DevEditorPanel
+                debugAssets={debugAssets}
+                onPreviewModeChange={setIsPreviewMode}
+              />
             </Suspense>
           </DevEditorLoadBoundary>
         ) : (
